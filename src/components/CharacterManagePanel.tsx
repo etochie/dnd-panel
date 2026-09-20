@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { CONDITIONS_2014 } from '../data/conditions'
 import { labelList, PROFICIENCY_LABELS } from '../data/labels'
 import { SKILLS_2014 } from '../data/skills'
 import { ABILITY_LABELS } from '../engine/abilities'
+import { calculateAbilityBudget } from '../engine/abilityBudget'
+import { calculateRulesMaxHp, effectiveMaxHp } from '../engine/hitPoints'
 import { CLASSES, subclassesForClass } from '../data/classes'
 import { domainSpellIdsForLevel } from '../data/deathDomain'
 import { levelUpCharacter, useCharacterStore } from '../state/CharacterStore'
-import type { AbilityKey } from '../types/character'
+import type { AbilityKey, Character } from '../types/character'
+import type { CalculationBreakdown } from '../types/explain'
 import { SpellPreparationPicker } from './SpellPreparationPicker'
+import { NumberStepper } from './NumberStepper'
 
 const ABILITY_MIN = 1
 const ABILITY_MAX = 30
@@ -31,84 +35,32 @@ function AbilityScoreEditor({
   return (
     <div className="ability-edit-grid">
       {ABILITY_KEYS.map((key) => (
-        <AbilityScoreField
-          key={key}
-          abilityKey={key}
-          value={values[key]}
-          onChange={(value) => setScore(key, value)}
-        />
+        <div key={key} className="field">
+          <span>{ABILITY_LABELS[key]}</span>
+          <NumberStepper
+            label={ABILITY_LABELS[key]}
+            value={values[key]}
+            min={ABILITY_MIN}
+            max={ABILITY_MAX}
+            onChange={(value) => setScore(key, value)}
+          />
+        </div>
       ))}
     </div>
   )
 }
 
-function AbilityScoreField({
-  abilityKey,
-  value,
-  onChange,
-}: {
-  abilityKey: AbilityKey
-  value: number
-  onChange: (value: number) => void
-}) {
-  const [draft, setDraft] = useState(String(value))
-  const label = ABILITY_LABELS[abilityKey]
-
-  useEffect(() => {
-    setDraft(String(value))
-  }, [value])
-
-  const commit = (next: number) => {
-    const clamped = clampAbility(next)
-    onChange(clamped)
-    setDraft(String(clamped))
-  }
-
-  return (
-    <div className="field">
-      <span>{label}</span>
-      <div className="ability-stepper">
-        <button
-          type="button"
-          className="btn-small ability-stepper-btn"
-          disabled={value <= ABILITY_MIN}
-          aria-label={`Уменьшить ${label}`}
-          onClick={() => commit(value - 1)}
-        >
-          −
-        </button>
-        <input
-          className="input ability-stepper-input"
-          inputMode="numeric"
-          value={draft}
-          aria-label={label}
-          onChange={(e) => {
-            const raw = e.target.value.replace(/\D/g, '')
-            setDraft(raw)
-            if (raw === '') return
-            const parsed = parseInt(raw, 10)
-            if (!Number.isNaN(parsed)) onChange(clampAbility(parsed))
-          }}
-          onBlur={() => {
-            const parsed = parseInt(draft, 10)
-            commit(Number.isNaN(parsed) ? ABILITY_MIN : parsed)
-          }}
-        />
-        <button
-          type="button"
-          className="btn-small ability-stepper-btn"
-          disabled={value >= ABILITY_MAX}
-          aria-label={`Увеличить ${label}`}
-          onClick={() => commit(value + 1)}
-        >
-          +
-        </button>
-      </div>
-    </div>
-  )
+function budgetTone(remaining: number): string {
+  if (remaining < 0) return 'over'
+  if (remaining === 0) return ''
+  return 'ok'
 }
 
-export function CharacterManagePanel() {
+export function CharacterManagePanel({
+  onExplain,
+}: {
+  onExplain: (b: CalculationBreakdown) => void
+}) {
   const {
     characters,
     activeCharacter,
@@ -146,11 +98,19 @@ export function CharacterManagePanel() {
       return
     }
     const next = levelUpCharacter(activeCharacter)
+    const hpBefore = calculateRulesMaxHp(activeCharacter).value
+    const hpAfter = calculateRulesMaxHp({ ...activeCharacter, level: next.level }).value
     const changes = [
       `Уровень: ${activeCharacter.level} → ${next.level}`,
       `Бонус мастерства: ${derived.proficiencyBonus} (пересчитается автоматически)`,
       'Ячейки заклинаний обновлены по таблице жреца.',
+      `Максимум хитов по правилам: ${hpBefore} → ${hpAfter}`,
     ]
+    if (activeCharacter.maxHpOverride != null) {
+      changes.push(
+        `Сейчас стоит ручной максимум ${activeCharacter.maxHpOverride}. Его можно сменить в редакторе.`,
+      )
+    }
     if (!confirm(`Повысить уровень?\n\n${changes.join('\n')}`)) return
     updateActiveCharacter(next)
   }
@@ -163,6 +123,26 @@ export function CharacterManagePanel() {
     }
     createCharacter(name)
     setNewName('')
+  }
+
+  const budget = calculateAbilityBudget(activeCharacter)
+  const rulesMaxHp = derived.rulesMaxHp
+  const usingManualHp = activeCharacter.maxHpOverride != null
+
+  const setMaxHp = (value: number) => {
+    updateActiveCharacter((c) => {
+      const override = value === calculateRulesMaxHp(c).value ? null : value
+      const next: Character = { ...c, maxHpOverride: override }
+      const maxHp = effectiveMaxHp(next)
+      return { ...next, currentHp: Math.min(c.currentHp, maxHp) }
+    })
+  }
+
+  const setCurrentHp = (value: number) => {
+    updateActiveCharacter((c) => ({
+      ...c,
+      currentHp: Math.max(0, Math.min(effectiveMaxHp(c), value)),
+    }))
   }
 
   return (
@@ -303,24 +283,94 @@ export function CharacterManagePanel() {
             onChange={(e) => updateActiveCharacter({ alignment: e.target.value })}
           />
         </label>
+        <div className="budget-block">
+          <h4 className="mini-title">Очки характеристик</h4>
+          <p className={`budget-line ${budgetTone(budget.pointBuyRemaining)}`}>
+            Покупка очков: {budget.pointBuySpent} из {budget.pointBuyLimit}. Осталось{' '}
+            {budget.pointBuyRemaining}.
+          </p>
+          <p className={`budget-line ${budgetTone(budget.asiRemaining)}`}>
+            Улучшение характеристик ({budget.className}) на {budget.level} уровне: доступно{' '}
+            {budget.asiPointsAvailable} очков
+            {budget.asiLevels.length > 0
+              ? ` (уровни ${budget.asiLevels.join(', ')})`
+              : ''}
+            . Потрачено {budget.asiPointsSpent}. Осталось {budget.asiRemaining}.
+          </p>
+          {budget.racialLabel && <p className="muted small">{budget.racialLabel}</p>}
+          <button
+            type="button"
+            className="btn-small"
+            onClick={() => onExplain(budget.breakdown)}
+          >
+            Как считаются очки
+          </button>
+        </div>
         <AbilityScoreEditor
           key={activeCharacter.id}
           values={activeCharacter.abilities}
-          onChange={(abilities) => updateActiveCharacter({ abilities })}
+          onChange={(abilities) =>
+            updateActiveCharacter((c) => {
+              const next = { ...c, abilities }
+              return { ...next, currentHp: Math.min(c.currentHp, effectiveMaxHp(next)) }
+            })
+          }
         />
-        <label className="field">
-          Максимум хитов (ручное значение)
-          <input
-            type="number"
-            min={1}
-            className="input"
-            value={activeCharacter.maxHpOverride ?? derived.maxHp}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              updateActiveCharacter({ maxHpOverride: Number.isNaN(v) ? null : v })
-            }}
-          />
-        </label>
+        <div className="hp-edit-block">
+          <h4 className="mini-title">Хиты</h4>
+          <p className="muted small">
+            По правилам: {rulesMaxHp}.{' '}
+            {usingManualHp
+              ? `Сейчас используется ручное значение ${derived.maxHp}.`
+              : 'Сейчас используется расчет по правилам.'}
+          </p>
+          <label className="field">
+            Текущие хиты
+            <NumberStepper
+              key={`${activeCharacter.id}-hp-${activeCharacter.currentHp}-${derived.maxHp}`}
+              label="Текущие хиты"
+              value={activeCharacter.currentHp}
+              min={0}
+              max={derived.maxHp}
+              onChange={setCurrentHp}
+            />
+          </label>
+          <label className="field">
+            Максимум хитов
+            <NumberStepper
+              key={`${activeCharacter.id}-maxhp-${derived.maxHp}-${String(activeCharacter.maxHpOverride)}`}
+              label="Максимум хитов"
+              value={derived.maxHp}
+              min={1}
+              max={999}
+              onChange={setMaxHp}
+            />
+          </label>
+          <div className="row-actions">
+            <button
+              type="button"
+              className="btn-small"
+              onClick={() => onExplain(derived.maxHpBreakdown)}
+            >
+              Как считаются хиты
+            </button>
+            {usingManualHp && (
+              <button
+                type="button"
+                className="btn-small"
+                onClick={() =>
+                  updateActiveCharacter((c) => ({
+                    ...c,
+                    maxHpOverride: null,
+                    currentHp: Math.min(c.currentHp, calculateRulesMaxHp(c).value),
+                  }))
+                }
+              >
+                Вернуть расчет по правилам
+              </button>
+            )}
+          </div>
+        </div>
         <button type="button" className="btn btn-primary" onClick={levelUp}>
           Повысить уровень
         </button>

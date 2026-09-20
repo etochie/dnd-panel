@@ -66,9 +66,13 @@ export function CharacterSheet({ onExplain }: Props) {
         <div className="hp-block">
           <div className="hp-numbers">
             <span className="hp-label">Хиты</span>
-            <span className="hp-value">
+            <button
+              type="button"
+              className="hp-value hp-value-btn"
+              onClick={() => onExplain(derived.maxHpBreakdown)}
+            >
               {activeCharacter.currentHp} / {maxHp}
-            </span>
+            </button>
             {activeCharacter.tempHp > 0 && (
               <span className="temp-hp">+{activeCharacter.tempHp} врем.</span>
             )}

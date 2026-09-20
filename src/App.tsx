@@ -38,7 +38,7 @@ function AppInner() {
         {tab === 'spells' && <SpellbookPanel />}
         {tab === 'inventory' && <InventoryPanel />}
         {tab === 'journal' && <JournalPanel />}
-        {tab === 'character' && <CharacterManagePanel />}
+        {tab === 'character' && <CharacterManagePanel onExplain={setBreakdown} />}
       </AppShell>
       <RulesExplanation breakdown={breakdown} onClose={() => setBreakdown(null)} />
       <RulesExplanation

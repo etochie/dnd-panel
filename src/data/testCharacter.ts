@@ -2,6 +2,7 @@ import type { Character } from '../types/character'
 import { buildSpellSlotsForCleric } from './classes'
 import { domainSpellIdsForLevel } from './deathDomain'
 import { createId } from '../utils/id'
+import { calculateRulesMaxHp } from '../engine/hitPoints'
 
 export function createTestCleric(): Character {
   const now = new Date().toISOString()
@@ -113,7 +114,7 @@ export function createTestCleric(): Character {
 export function createBlankCharacter(name: string): Character {
   const now = new Date().toISOString()
   const level = 1
-  return {
+  const character: Character = {
     id: createId(),
     name,
     race: '',
@@ -172,4 +173,6 @@ export function createBlankCharacter(name: string): Character {
     createdAt: now,
     updatedAt: now,
   }
+  character.currentHp = calculateRulesMaxHp(character).value
+  return character
 }

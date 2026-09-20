@@ -20,6 +20,7 @@ import { createBlankCharacter } from '../data/testCharacter'
 import { createId } from '../utils/id'
 import { buildSpellSlotsForCleric } from '../data/classes'
 import { domainSpellIdsForLevel } from '../data/deathDomain'
+import { calculateRulesMaxHp } from '../engine/hitPoints'
 
 interface CharacterContextValue {
   characters: Character[]
@@ -116,6 +117,9 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
     }
     if (extra?.hitDiceRemaining === undefined) {
       merged.hitDiceRemaining = level
+    }
+    if (extra?.currentHp === undefined) {
+      merged.currentHp = calculateRulesMaxHp(merged).value
     }
     const c = touch(merged)
     setStorage((s) => ({

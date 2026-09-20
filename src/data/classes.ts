@@ -5,10 +5,18 @@ export interface ClassDefinition {
   name: string
   spellcastingAbility: AbilityKey
   hitDie: number
+  /** Уровни улучшения характеристик по таблице класса 2014 */
+  asiLevels: number[]
 }
 
 export const CLASSES: ClassDefinition[] = [
-  { id: 'cleric', name: 'Жрец', spellcastingAbility: 'wis', hitDie: 8 },
+  {
+    id: 'cleric',
+    name: 'Жрец',
+    spellcastingAbility: 'wis',
+    hitDie: 8,
+    asiLevels: [4, 8, 12, 16, 19],
+  },
 ]
 
 export function getClassDefinition(classId: string): ClassDefinition | undefined {

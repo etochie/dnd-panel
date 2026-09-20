@@ -68,6 +68,15 @@
   font-weight: 600;
 }
 
+.hp-value-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  min-height: 0;
+}
+
 .temp-hp {
   color: var(--accent);
 }
@@ -432,4 +441,26 @@ select.input {
 .mini-title {
   margin: 0 0 0.5rem;
   font-size: 0.95rem;
+}
+
+.budget-block,
+.hp-edit-block {
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.budget-line {
+  margin: 0 0 0.45rem;
+  font-size: 0.9rem;
+}
+
+.budget-line.ok {
+  color: #b7d7b0;
+}
+
+.budget-line.over {
+  color: #ffb4b4;
 }

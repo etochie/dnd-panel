@@ -14,6 +14,7 @@ import { calculateAllSavingThrows } from './saves'
 import { calculateAllSkills, calculateSkillBonus } from './skills'
 import { getClassDefinition } from '../data/classes'
 import { preparedSpellLimitForCharacter } from './spellPreparation'
+import { calculateRulesMaxHp, effectiveMaxHp, explainEffectiveMaxHp } from './hitPoints'
 
 export interface DerivedStats {
   abilityModifiers: Record<string, number>
@@ -25,6 +26,8 @@ export interface DerivedStats {
   initiativeBreakdown: CalculationBreakdown
   speed: number
   maxHp: number
+  rulesMaxHp: number
+  maxHpBreakdown: CalculationBreakdown
   spellcastingMod: number
   spellSaveDc: number
   spellSaveDcBreakdown: CalculationBreakdown
@@ -64,9 +67,9 @@ export function deriveCharacterStats(character: Character): DerivedStats {
     calculateSpellAttackBonus(character, spellcastingMod)
 
   const speed = character.speedOverride ?? 9
-  const maxHp =
-    character.maxHpOverride ??
-    character.currentHp
+  const rulesHp = calculateRulesMaxHp(character)
+  const maxHp = effectiveMaxHp(character)
+  const maxHpBreakdown = explainEffectiveMaxHp(character)
 
   const abilityBreakdowns: Record<string, CalculationBreakdown> = {}
   for (const key of ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const) {
@@ -92,6 +95,8 @@ export function deriveCharacterStats(character: Character): DerivedStats {
     initiativeBreakdown,
     speed,
     maxHp,
+    rulesMaxHp: rulesHp.value,
+    maxHpBreakdown,
     spellcastingMod,
     spellSaveDc,
     spellSaveDcBreakdown,

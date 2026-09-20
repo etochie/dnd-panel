@@ -1,5 +1,6 @@
 import type { Character } from '../types/character'
 import { buildSpellSlotsForCleric } from '../data/classes'
+import { effectiveMaxHp } from './hitPoints'
 
 export interface RestPreview {
   label: string
@@ -38,7 +39,7 @@ export function previewLongRest(character: Character): RestPreview {
 }
 
 export function applyLongRest(character: Character): Character {
-  const maxHp = character.maxHpOverride ?? character.currentHp
+  const maxHp = effectiveMaxHp(character)
   const slots =
     character.classId === 'cleric'
       ? buildSpellSlotsForCleric(character.level).map((s) => {
