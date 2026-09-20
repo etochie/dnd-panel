@@ -1,0 +1,16 @@
+---
+description: Локально проект запускать только через Docker
+alwaysApply: true
+---
+
+# Локальный запуск только через Docker
+
+Локально приложение поднимать только Docker Compose. Не запускай `npm run dev`, `npm start` или `vite` на хосте.
+
+```bash
+docker compose up --build -d
+```
+
+Адрес: http://localhost:8080
+
+Остановка: `docker compose down`.

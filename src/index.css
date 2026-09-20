@@ -1,0 +1,40 @@
+:root {
+  --bg: #121018;
+  --surface: #1a1624;
+  --surface-2: #242033;
+  --border: #3a334d;
+  --text: #ece6f5;
+  --text-muted: #a89fb8;
+  --accent: #c4a35a;
+  --warning: #e8a857;
+  --danger: #c45c5c;
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-body: 'Source Sans 3', system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.45;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
