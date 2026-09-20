@@ -302,7 +302,27 @@ select.input {
 }
 
 .ability-edit-grid {
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.ability-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ability-stepper-btn {
+  min-width: 44px;
+  padding: 0.35rem 0;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.ability-stepper-input {
+  text-align: center;
+  min-width: 0;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
 }
 
 .skills-edit {
