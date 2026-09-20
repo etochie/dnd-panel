@@ -18,6 +18,7 @@ export const PROFICIENCY_LABELS: Record<string, string> = {
   simple: 'простое',
   martial: 'военное',
   common: 'общий',
+  draconic: 'драконий',
 }
 
 export const ACTION_TYPE_LABELS: Record<string, string> = {

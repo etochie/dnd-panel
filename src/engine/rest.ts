@@ -1,6 +1,5 @@
 import type { Character } from '../types/character'
-import { buildSpellSlotsForCleric } from '../data/classes'
-import { effectiveMaxHp } from './hitPoints'
+import { deriveCharacterStats, getSpellSlots } from '../rules'
 
 export interface RestPreview {
   label: string
@@ -8,10 +7,11 @@ export interface RestPreview {
 }
 
 export function previewShortRest(character: Character): RestPreview {
+  const derived = deriveCharacterStats(character)
   const changes: string[] = []
-  for (const r of character.resources) {
-    if (r.recharge === 'short_rest' && r.current < r.max) {
-      changes.push(`${r.name}: восстановится до ${r.max}`)
+  for (const resource of derived.resources) {
+    if (resource.recharge === 'short_rest' && resource.current < resource.max) {
+      changes.push(`${resource.name}: восстановится до ${resource.max}`)
     }
   }
   changes.push('Кости хитов: можно потратить и восстановить хиты (по правилам 2014, вручную).')
@@ -19,44 +19,41 @@ export function previewShortRest(character: Character): RestPreview {
 }
 
 export function applyShortRest(character: Character): Character {
-  const resources = character.resources.map((r) =>
-    r.recharge === 'short_rest' ? { ...r, current: r.max } : r,
+  const derived = deriveCharacterStats(character)
+  const resources = derived.resources.map((resource) =>
+    resource.recharge === 'short_rest' ? { ...resource, current: resource.max } : resource,
   )
   return { ...character, resources, updatedAt: new Date().toISOString() }
 }
 
 export function previewLongRest(character: Character): RestPreview {
+  const derived = deriveCharacterStats(character)
   const changes: string[] = [
-    'Хиты: восстановление по правилам (для жреца - все хиты, если не указано иное).',
+    'Хиты: восстанавливаются полностью.',
     'Все ячейки заклинаний восстанавливаются.',
   ]
-  for (const r of character.resources) {
-    if (r.recharge === 'short_rest' || r.recharge === 'long_rest') {
-      if (r.current < r.max) changes.push(`${r.name}: до ${r.max}`)
+  for (const resource of derived.resources) {
+    if (resource.recharge === 'short_rest' || resource.recharge === 'long_rest') {
+      if (resource.current < resource.max) changes.push(`${resource.name}: до ${resource.max}`)
     }
   }
   return { label: 'Продолжительный отдых', changes }
 }
 
 export function applyLongRest(character: Character): Character {
-  const maxHp = effectiveMaxHp(character)
-  const slots =
-    character.classId === 'cleric'
-      ? buildSpellSlotsForCleric(character.level).map((s) => {
-          const existing = character.spellSlots.find((x) => x.level === s.level)
-          return { ...s, current: s.max, max: existing?.max ?? s.max }
-        })
-      : character.spellSlots.map((s) => ({ ...s, current: s.max }))
-
-  const resources = character.resources.map((r) =>
-    r.recharge === 'short_rest' || r.recharge === 'long_rest'
-      ? { ...r, current: r.max }
-      : r,
+  const derived = deriveCharacterStats(character)
+  const slots = getSpellSlots(character.classId, character.level).map((slot) => {
+    const existing = character.spellSlots.find((item) => item.level === slot.level)
+    return { ...slot, current: slot.max, max: existing?.max ?? slot.max }
+  })
+  const resources = derived.resources.map((resource) =>
+    resource.recharge === 'short_rest' || resource.recharge === 'long_rest'
+      ? { ...resource, current: resource.max }
+      : resource,
   )
-
   return {
     ...character,
-    currentHp: maxHp,
+    currentHp: derived.maxHp,
     spellSlots: slots,
     resources,
     hitDiceRemaining: character.level,
@@ -64,7 +61,7 @@ export function applyLongRest(character: Character): Character {
       actionUsed: false,
       bonusActionUsed: false,
       reactionUsed: false,
-      movementRemaining: character.speedOverride ?? 9,
+      movementRemaining: derived.speed,
     },
     updatedAt: new Date().toISOString(),
   }

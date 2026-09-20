@@ -6,8 +6,8 @@ import {
   getSpellsByIds,
   groupSpellsByLevel,
 } from '../data/spells'
-import { clericCantripsKnown, clericPreparedLimit, maxSpellSlotLevel } from '../engine/spellPreparation'
-import { buildSpellSlotsForCleric } from '../data/classes'
+import { getCantripsKnown, getPreparedSpellCount, getSpellSlots } from '../rules'
+import { maxSpellSlotLevel } from '../engine/spellPreparation'
 import { calculateAbilityModifier } from '../engine/abilities'
 
 interface Props {
@@ -41,9 +41,9 @@ export function SpellPreparationPicker({
   const [preparedChoice, setPreparedChoice] = useState('')
 
   const wisMod = calculateAbilityModifier(wisdom)
-  const preparedLimit = classId === 'cleric' ? clericPreparedLimit(level, wisMod) : 0
-  const cantripLimit = classId === 'cleric' ? clericCantripsKnown(level) : 0
-  const slots = classId === 'cleric' ? buildSpellSlotsForCleric(level) : []
+  const preparedLimit = getPreparedSpellCount(classId, level, wisMod)
+  const cantripLimit = getCantripsKnown(classId, level)
+  const slots = getSpellSlots(classId, level)
   const slotLevel = maxSpellSlotLevel(slots)
 
   const availableCantrips = getClassCantrips(classId).filter((s) => !cantripIds.includes(s.id))

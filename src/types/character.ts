@@ -1,5 +1,31 @@
 export type AbilityKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'
 
+export type AbilityGenerationMethod = 'standard_array' | 'point_buy' | 'manual'
+export type HpCalculationMethod = 'fixed' | 'rolled' | 'manual'
+
+export interface ManualOverrides {
+  maxHp?: number
+  speed?: number
+  proficiencyBonus?: number
+  spellSaveDc?: number
+  spellAttackBonus?: number
+}
+
+export interface AsiScoreChoice {
+  kind: 'scores'
+  increases: Partial<Record<AbilityKey, number>>
+}
+
+export interface AsiFeatChoice {
+  kind: 'feat'
+  featId: string
+  featName: string
+}
+
+export type AsiChoice = {
+  level: number
+} & (AsiScoreChoice | AsiFeatChoice)
+
 export type ItemCategory =
   | 'weapon'
   | 'armor'
@@ -18,7 +44,6 @@ export interface InventoryItem {
   description: string
   equipped: boolean
   category: ItemCategory
-  /** weapon / armor stats when known */
   weaponDamage?: string
   weaponDamageType?: string
   weaponProperties?: string[]
@@ -39,7 +64,6 @@ export interface ResourceState {
   name: string
   current: number
   max: number
-  /** short_rest | long_rest | other */
   recharge: 'short_rest' | 'long_rest' | 'other'
   description?: string
 }
@@ -103,55 +127,56 @@ export interface Money {
   pp: number
 }
 
+export interface ExtraProficiencies {
+  armor: string[]
+  weapons: string[]
+  tools: string[]
+  languages: string[]
+  other: string[]
+}
+
 export interface Character {
   id: string
   name: string
-  race: string
-  raceDetails?: {
-    dragonbornLineage?: string
-    breathType?: string
-  }
+  raceId: string
+  ancestryId?: string
   classId: string
   subclassId?: string
   level: number
   background: string
   alignment: string
   notes: string
-  abilities: Record<AbilityKey, number>
+  abilityGenerationMethod: AbilityGenerationMethod
+  baseAbilities: Record<AbilityKey, number>
+  asiChoices: AsiChoice[]
+  allowFeats: boolean
+  hpCalculationMethod: HpCalculationMethod
+  hpRolls: Record<string, number>
   skillProficiencies: string[]
   skillExpertise: string[]
-  saveProficiencies: AbilityKey[]
-  proficiencies: {
-    armor: string[]
-    weapons: string[]
-    tools: string[]
-    languages: string[]
-    other: string[]
-  }
+  extraSaveProficiencies: AbilityKey[]
+  extraProficiencies: ExtraProficiencies
   knownSpellIds: string[]
   preparedSpellIds: string[]
   cantripIds: string[]
-  domainSpellIds: string[]
   spellSlots: SpellSlotState[]
   currentHp: number
-  maxHpOverride: number | null
   tempHp: number
   hitDiceRemaining: number
-  hitDieSize: number
   resources: ResourceState[]
   inventory: InventoryItem[]
   conditions: string[]
   journal: Journal
   money: Money
-  speedOverride: number | null
   combat: CombatTurnState
   concentration: ConcentrationState | null
+  overrides: ManualOverrides
   createdAt: string
   updatedAt: string
 }
 
 export interface AppStorage {
-  version: 1
+  version: 2
   characters: Character[]
   activeCharacterId: string | null
 }

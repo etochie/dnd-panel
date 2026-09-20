@@ -2,59 +2,24 @@ import { useState } from 'react'
 import { CONDITIONS_2014 } from '../data/conditions'
 import { labelList, PROFICIENCY_LABELS } from '../data/labels'
 import { SKILLS_2014 } from '../data/skills'
-import { ABILITY_LABELS } from '../engine/abilities'
-import { calculateAbilityBudget } from '../engine/abilityBudget'
-import { calculateRulesMaxHp, effectiveMaxHp } from '../engine/hitPoints'
-import { CLASSES, subclassesForClass } from '../data/classes'
-import { domainSpellIdsForLevel } from '../data/deathDomain'
-import { levelUpCharacter, useCharacterStore } from '../state/CharacterStore'
-import type { AbilityKey, Character } from '../types/character'
+import {
+  ABILITY_LABELS,
+  CLASSES,
+  DRAGONBORN_ANCESTRIES,
+  RACES,
+  getRaceDefinition,
+  subclassesForClass,
+} from '../rules'
+import { useCharacterStore } from '../state/CharacterStore'
+import type { AbilityGenerationMethod, HpCalculationMethod } from '../types/character'
 import type { CalculationBreakdown } from '../types/explain'
 import { SpellPreparationPicker } from './SpellPreparationPicker'
 import { NumberStepper } from './NumberStepper'
-
-const ABILITY_MIN = 1
-const ABILITY_MAX = 30
-const ABILITY_KEYS = Object.keys(ABILITY_LABELS) as AbilityKey[]
-
-function clampAbility(value: number): number {
-  return Math.min(ABILITY_MAX, Math.max(ABILITY_MIN, value))
-}
-
-function AbilityScoreEditor({
-  values,
-  onChange,
-}: {
-  values: Record<AbilityKey, number>
-  onChange: (next: Record<AbilityKey, number>) => void
-}) {
-  const setScore = (key: AbilityKey, value: number) => {
-    onChange({ ...values, [key]: clampAbility(value) })
-  }
-
-  return (
-    <div className="ability-edit-grid">
-      {ABILITY_KEYS.map((key) => (
-        <div key={key} className="field">
-          <span>{ABILITY_LABELS[key]}</span>
-          <NumberStepper
-            label={ABILITY_LABELS[key]}
-            value={values[key]}
-            min={ABILITY_MIN}
-            max={ABILITY_MAX}
-            onChange={(value) => setScore(key, value)}
-          />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function budgetTone(remaining: number): string {
-  if (remaining < 0) return 'over'
-  if (remaining === 0) return ''
-  return 'ok'
-}
+import { AbilityAssigner } from './character/AbilityAssigner'
+import { CharacterAudit } from './character/CharacterAudit'
+import { CharacterCreateWizard } from './character/CharacterCreateWizard'
+import { LevelUpWizard } from './character/LevelUpWizard'
+import { AsiPicker } from './character/AsiPicker'
 
 export function CharacterManagePanel({
   onExplain,
@@ -73,7 +38,9 @@ export function CharacterManagePanel({
     importCharacter,
     resetData,
   } = useCharacterStore()
-  const [newName, setNewName] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [leveling, setLeveling] = useState(false)
+  const [showAudit, setShowAudit] = useState(false)
 
   const importFile = () => {
     const input = document.createElement('input')
@@ -83,92 +50,48 @@ export function CharacterManagePanel({
       const file = input.files?.[0]
       if (!file) return
       try {
-        const text = await file.text()
-        importCharacter(text)
-      } catch (e) {
-        alert(e instanceof Error ? e.message : 'Ошибка импорта')
+        importCharacter(await file.text())
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Ошибка импорта')
       }
     }
     input.click()
   }
 
-  const levelUp = () => {
-    if (activeCharacter.level >= 20) {
-      alert('Максимальный уровень 20.')
-      return
-    }
-    const next = levelUpCharacter(activeCharacter)
-    const hpBefore = calculateRulesMaxHp(activeCharacter).value
-    const hpAfter = calculateRulesMaxHp({ ...activeCharacter, level: next.level }).value
-    const changes = [
-      `Уровень: ${activeCharacter.level} → ${next.level}`,
-      `Бонус мастерства: ${derived.proficiencyBonus} (пересчитается автоматически)`,
-      'Ячейки заклинаний обновлены по таблице жреца.',
-      `Максимум хитов по правилам: ${hpBefore} → ${hpAfter}`,
-    ]
-    if (activeCharacter.maxHpOverride != null) {
-      changes.push(
-        `Сейчас стоит ручной максимум ${activeCharacter.maxHpOverride}. Его можно сменить в редакторе.`,
-      )
-    }
-    if (!confirm(`Повысить уровень?\n\n${changes.join('\n')}`)) return
-    updateActiveCharacter(next)
+  const race = getRaceDefinition(activeCharacter.raceId)
+  const usingManualHp = derived.usingManualHp
+
+  if (creating) {
+    return (
+      <CharacterCreateWizard
+        onCancel={() => setCreating(false)}
+        onCreated={(character) => {
+          createCharacter(character)
+          setCreating(false)
+        }}
+      />
+    )
   }
 
-  const submitCreate = () => {
-    const name = newName.trim()
-    if (!name) {
-      alert('Укажите имя персонажа.')
-      return
-    }
-    createCharacter(name)
-    setNewName('')
-  }
-
-  const budget = calculateAbilityBudget(activeCharacter)
-  const rulesMaxHp = derived.rulesMaxHp
-  const usingManualHp = activeCharacter.maxHpOverride != null
-
-  const setMaxHp = (value: number) => {
-    updateActiveCharacter((c) => {
-      const override = value === calculateRulesMaxHp(c).value ? null : value
-      const next: Character = { ...c, maxHpOverride: override }
-      const maxHp = effectiveMaxHp(next)
-      return { ...next, currentHp: Math.min(c.currentHp, maxHp) }
-    })
-  }
-
-  const setCurrentHp = (value: number) => {
-    updateActiveCharacter((c) => ({
-      ...c,
-      currentHp: Math.max(0, Math.min(effectiveMaxHp(c), value)),
-    }))
+  if (leveling) {
+    return (
+      <LevelUpWizard
+        character={activeCharacter}
+        onCancel={() => setLeveling(false)}
+        onApply={(next) => {
+          updateActiveCharacter(next)
+          setLeveling(false)
+        }}
+      />
+    )
   }
 
   return (
     <div className="stack gap-lg">
       <section className="card">
         <h2 className="section-title">Создать персонажа</h2>
-        <p className="muted small">
-          Создайте каркас по имени. Расу, класс, характеристики и остальное можно сразу
-          поправить в редакторе.
-        </p>
-        <label className="field">
-          Имя
-          <input
-            className="input"
-            value={newName}
-            placeholder="Новый персонаж"
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                submitCreate()
-              }
-            }}
-          />
-        </label>
-        <button type="button" className="btn btn-primary" onClick={submitCreate}>
+        <p className="muted small">Мастер последовательно спросит уровень, класс, расу, характеристики и хиты.</p>
+        <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
           Создать персонажа
         </button>
       </section>
@@ -180,11 +103,11 @@ export function CharacterManagePanel({
           <select
             className="input"
             value={activeCharacter.id}
-            onChange={(e) => setActiveCharacterId(e.target.value)}
+            onChange={(event) => setActiveCharacterId(event.target.value)}
           >
-            {characters.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name || 'Без имени'}
+            {characters.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name || 'Без имени'}
               </option>
             ))}
           </select>
@@ -207,27 +130,65 @@ export function CharacterManagePanel({
           <input
             className="input"
             value={activeCharacter.name}
-            onChange={(e) => updateActiveCharacter({ name: e.target.value })}
+            onChange={(event) => updateActiveCharacter({ name: event.target.value })}
           />
         </label>
         <label className="field">
           Раса
-          <input
+          <select
             className="input"
-            value={activeCharacter.race}
-            onChange={(e) => updateActiveCharacter({ race: e.target.value })}
-          />
+            value={activeCharacter.raceId}
+            onChange={(event) => {
+              const nextRace = getRaceDefinition(event.target.value)
+              updateActiveCharacter({
+                raceId: event.target.value,
+                ancestryId: nextRace?.needsAncestry
+                  ? activeCharacter.ancestryId ?? nextRace.ancestries?.[0]?.id
+                  : undefined,
+              })
+            }}
+          >
+            {RACES.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
         </label>
+        {race?.needsAncestry && (
+          <label className="field">
+            Драконья родословная
+            <select
+              className="input"
+              value={activeCharacter.ancestryId ?? ''}
+              onChange={(event) => updateActiveCharacter({ ancestryId: event.target.value })}
+            >
+              {DRAGONBORN_ANCESTRIES.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="field">
           Класс
           <select
             className="input"
             value={activeCharacter.classId}
-            onChange={(e) => updateActiveCharacter({ classId: e.target.value })}
+            onChange={(event) => {
+              const nextClass = event.target.value
+              const first = subclassesForClass(nextClass)[0]
+              updateActiveCharacter({
+                classId: nextClass,
+                subclassId: first?.id,
+                asiChoices: [],
+              })
+            }}
           >
-            {CLASSES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+            {CLASSES.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
               </option>
             ))}
           </select>
@@ -237,42 +198,23 @@ export function CharacterManagePanel({
           <select
             className="input"
             value={activeCharacter.subclassId ?? ''}
-            onChange={(e) => {
-              const subclassId = e.target.value || undefined
-              updateActiveCharacter({
-                subclassId,
-                domainSpellIds:
-                  subclassId === 'death_domain'
-                    ? domainSpellIdsForLevel(activeCharacter.level)
-                    : [],
-              })
-            }}
+            onChange={(event) => updateActiveCharacter({ subclassId: event.target.value || undefined })}
           >
             <option value="">Не выбран</option>
-            {subclassesForClass(activeCharacter.classId).map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
+            {subclassesForClass(activeCharacter.classId).map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
               </option>
             ))}
           </select>
         </label>
-        <label className="field">
-          Уровень
-          <input
-            className="input"
-            type="number"
-            min={1}
-            max={20}
-            value={activeCharacter.level}
-            readOnly
-          />
-        </label>
+        <p className="muted small">Уровень: {activeCharacter.level}. Меняется только через повышение уровня.</p>
         <label className="field">
           Предыстория
           <input
             className="input"
             value={activeCharacter.background}
-            onChange={(e) => updateActiveCharacter({ background: e.target.value })}
+            onChange={(event) => updateActiveCharacter({ background: event.target.value })}
           />
         </label>
         <label className="field">
@@ -280,50 +222,108 @@ export function CharacterManagePanel({
           <input
             className="input"
             value={activeCharacter.alignment}
-            onChange={(e) => updateActiveCharacter({ alignment: e.target.value })}
+            onChange={(event) => updateActiveCharacter({ alignment: event.target.value })}
           />
         </label>
+
         <div className="budget-block">
-          <h4 className="mini-title">Очки характеристик</h4>
-          <p className={`budget-line ${budgetTone(budget.pointBuyRemaining)}`}>
-            Покупка очков: {budget.pointBuySpent} из {budget.pointBuyLimit}. Осталось{' '}
-            {budget.pointBuyRemaining}.
-          </p>
-          <p className={`budget-line ${budgetTone(budget.asiRemaining)}`}>
-            Улучшение характеристик ({budget.className}) на {budget.level} уровне: доступно{' '}
-            {budget.asiPointsAvailable} очков
-            {budget.asiLevels.length > 0
-              ? ` (уровни ${budget.asiLevels.join(', ')})`
-              : ''}
-            . Потрачено {budget.asiPointsSpent}. Осталось {budget.asiRemaining}.
-          </p>
-          {budget.racialLabel && <p className="muted small">{budget.racialLabel}</p>}
-          <button
-            type="button"
-            className="btn-small"
-            onClick={() => onExplain(budget.breakdown)}
-          >
-            Как считаются очки
+          <h4 className="mini-title">Характеристики</h4>
+          <label className="field">
+            Способ генерации
+            <select
+              className="input"
+              value={activeCharacter.abilityGenerationMethod}
+              onChange={(event) =>
+                updateActiveCharacter({
+                  abilityGenerationMethod: event.target.value as AbilityGenerationMethod,
+                })
+              }
+            >
+              <option value="point_buy">Покупка очков</option>
+              <option value="standard_array">Стандартный набор</option>
+              <option value="manual">Ручные значения</option>
+            </select>
+          </label>
+          <AbilityAssigner
+            method={activeCharacter.abilityGenerationMethod}
+            baseAbilities={activeCharacter.baseAbilities}
+            parts={derived.abilityParts}
+            onChangeBase={(baseAbilities) => updateActiveCharacter({ baseAbilities })}
+          />
+          <button type="button" className="btn-small" onClick={() => onExplain(derived.asiBreakdown)}>
+            Улучшение характеристик
           </button>
         </div>
-        <AbilityScoreEditor
-          key={activeCharacter.id}
-          values={activeCharacter.abilities}
-          onChange={(abilities) =>
-            updateActiveCharacter((c) => {
-              const next = { ...c, abilities }
-              return { ...next, currentHp: Math.min(c.currentHp, effectiveMaxHp(next)) }
-            })
-          }
-        />
+
+        {derived.pendingAsiLevels.length > 0 && (
+          <div className="budget-block">
+            <AsiPicker
+              key={derived.pendingAsiLevels[0]}
+              level={derived.pendingAsiLevels[0]}
+              allowFeats={activeCharacter.allowFeats}
+              onConfirm={(choice) =>
+                updateActiveCharacter({
+                  asiChoices: [
+                    ...activeCharacter.asiChoices.filter((item) => item.level !== choice.level),
+                    choice,
+                  ],
+                })
+              }
+            />
+          </div>
+        )}
+
         <div className="hp-edit-block">
           <h4 className="mini-title">Хиты</h4>
-          <p className="muted small">
-            По правилам: {rulesMaxHp}.{' '}
-            {usingManualHp
-              ? `Сейчас используется ручное значение ${derived.maxHp}.`
-              : 'Сейчас используется расчет по правилам.'}
+          <label className="field">
+            Как считать хиты
+            <select
+              className="input"
+              value={activeCharacter.hpCalculationMethod}
+              onChange={(event) => {
+                const hpCalculationMethod = event.target.value as HpCalculationMethod
+                updateActiveCharacter((current) => ({
+                  ...current,
+                  hpCalculationMethod,
+                  overrides:
+                    hpCalculationMethod === 'manual'
+                      ? { ...current.overrides, maxHp: current.overrides.maxHp ?? derived.rulesMaxHp }
+                      : { ...current.overrides, maxHp: undefined },
+                }))
+              }}
+            >
+              <option value="fixed">Фиксированный вариант</option>
+              <option value="rolled">Бросок</option>
+              <option value="manual">Ручное значение</option>
+            </select>
+          </label>
+          {activeCharacter.hpCalculationMethod === 'rolled' &&
+            Array.from({ length: Math.max(0, activeCharacter.level - 1) }, (_, index) => index + 2).map((lvl) => (
+              <label key={lvl} className="field">
+                Бросок на {lvl} уровне
+                <NumberStepper
+                  label={`Бросок ${lvl}`}
+                  value={activeCharacter.hpRolls[String(lvl)] ?? 1}
+                  min={1}
+                  max={derived.hitDice.die}
+                  onChange={(value) =>
+                    updateActiveCharacter({
+                      hpRolls: { ...activeCharacter.hpRolls, [String(lvl)]: value },
+                    })
+                  }
+                />
+              </label>
+            ))}
+          <p>
+            Максимум HP: {derived.maxHp}
+            {usingManualHp ? '' : ' (расчет по правилам)'}
           </p>
+          {usingManualHp && (
+            <p className="warn-box">
+              Используется ручное значение. Автоматический расчет: {derived.rulesMaxHp}. Ручное
+              значение: {derived.maxHp}.
+            </p>
+          )}
           <label className="field">
             Текущие хиты
             <NumberStepper
@@ -332,37 +332,53 @@ export function CharacterManagePanel({
               value={activeCharacter.currentHp}
               min={0}
               max={derived.maxHp}
-              onChange={setCurrentHp}
+              onChange={(currentHp) => updateActiveCharacter({ currentHp })}
             />
           </label>
-          <label className="field">
-            Максимум хитов
-            <NumberStepper
-              key={`${activeCharacter.id}-maxhp-${derived.maxHp}-${String(activeCharacter.maxHpOverride)}`}
-              label="Максимум хитов"
-              value={derived.maxHp}
-              min={1}
-              max={999}
-              onChange={setMaxHp}
-            />
-          </label>
+          {usingManualHp && (
+            <label className="field">
+              Ручной максимум
+              <NumberStepper
+                label="Ручной максимум"
+                value={derived.maxHp}
+                min={1}
+                max={999}
+                onChange={(maxHp) =>
+                  updateActiveCharacter({
+                    hpCalculationMethod: 'manual',
+                    overrides: { ...activeCharacter.overrides, maxHp },
+                  })
+                }
+              />
+            </label>
+          )}
           <div className="row-actions">
-            <button
-              type="button"
-              className="btn-small"
-              onClick={() => onExplain(derived.maxHpBreakdown)}
-            >
-              Как считаются хиты
+            <button type="button" className="btn-small" onClick={() => onExplain(derived.maxHpBreakdown)}>
+              Как считается
             </button>
+            {!usingManualHp && (
+              <button
+                type="button"
+                className="btn-small"
+                onClick={() =>
+                  updateActiveCharacter({
+                    hpCalculationMethod: 'manual',
+                    overrides: { ...activeCharacter.overrides, maxHp: derived.rulesMaxHp },
+                  })
+                }
+              >
+                Изменить вручную
+              </button>
+            )}
             {usingManualHp && (
               <button
                 type="button"
                 className="btn-small"
                 onClick={() =>
-                  updateActiveCharacter((c) => ({
-                    ...c,
-                    maxHpOverride: null,
-                    currentHp: Math.min(c.currentHp, calculateRulesMaxHp(c).value),
+                  updateActiveCharacter((current) => ({
+                    ...current,
+                    hpCalculationMethod: 'fixed',
+                    overrides: { ...current.overrides, maxHp: undefined },
                   }))
                 }
               >
@@ -371,9 +387,17 @@ export function CharacterManagePanel({
             )}
           </div>
         </div>
-        <button type="button" className="btn btn-primary" onClick={levelUp}>
+        <button type="button" className="btn btn-primary" onClick={() => setLeveling(true)}>
           Повысить уровень
         </button>
+      </section>
+
+      <section className="card">
+        <h3 className="section-title">Проверить персонажа</h3>
+        <button type="button" className="btn" onClick={() => setShowAudit((value) => !value)}>
+          {showAudit ? 'Скрыть проверку' : 'Проверить персонажа'}
+        </button>
+        {showAudit && <CharacterAudit issues={derived.issues} />}
       </section>
 
       <section className="card">
@@ -381,10 +405,10 @@ export function CharacterManagePanel({
         <SpellPreparationPicker
           classId={activeCharacter.classId}
           level={activeCharacter.level}
-          wisdom={activeCharacter.abilities.wis}
+          wisdom={derived.abilityScores.wis}
           preparedIds={activeCharacter.preparedSpellIds}
           cantripIds={activeCharacter.cantripIds}
-          domainIds={activeCharacter.domainSpellIds}
+          domainIds={derived.domainSpellIds}
           onPreparedChange={(preparedSpellIds) => updateActiveCharacter({ preparedSpellIds })}
           onCantripsChange={(cantripIds) => updateActiveCharacter({ cantripIds })}
         />
@@ -393,21 +417,21 @@ export function CharacterManagePanel({
       <section className="card">
         <h3 className="section-title">Владения</h3>
         <p className="muted small">
-          Броня: {labelList(activeCharacter.proficiencies.armor, PROFICIENCY_LABELS)} · Оружие:{' '}
-          {labelList(activeCharacter.proficiencies.weapons, PROFICIENCY_LABELS)} · Языки:{' '}
-          {labelList(activeCharacter.proficiencies.languages, PROFICIENCY_LABELS)}
+          Броня: {labelList(derived.proficiencies.armor, PROFICIENCY_LABELS)} · Оружие:{' '}
+          {labelList(derived.proficiencies.weapons, PROFICIENCY_LABELS)} · Языки:{' '}
+          {labelList(derived.proficiencies.languages, PROFICIENCY_LABELS)}
         </p>
         <textarea
           className="textarea"
           placeholder="Прочие владения (через запятую)"
-          value={activeCharacter.proficiencies.other.join(', ')}
-          onChange={(e) =>
+          value={activeCharacter.extraProficiencies.other.join(', ')}
+          onChange={(event) =>
             updateActiveCharacter({
-              proficiencies: {
-                ...activeCharacter.proficiencies,
-                other: e.target.value
+              extraProficiencies: {
+                ...activeCharacter.extraProficiencies,
+                other: event.target.value
                   .split(',')
-                  .map((s) => s.trim())
+                  .map((item) => item.trim())
                   .filter(Boolean),
               },
             })
@@ -416,81 +440,54 @@ export function CharacterManagePanel({
       </section>
 
       <section className="card">
-        <h3 className="section-title">Навыки и спасброски</h3>
+        <h3 className="section-title">Навыки</h3>
         <div className="skills-edit">
-          {SKILLS_2014.map((s) => {
-            const prof = activeCharacter.skillProficiencies.includes(s.id)
+          {SKILLS_2014.map((skill) => {
+            const prof = activeCharacter.skillProficiencies.includes(skill.id)
             return (
-              <label key={s.id} className="check-row">
+              <label key={skill.id} className="check-row">
                 <input
                   type="checkbox"
                   checked={prof}
                   onChange={() => {
                     const list = prof
-                      ? activeCharacter.skillProficiencies.filter((x) => x !== s.id)
-                      : [...activeCharacter.skillProficiencies, s.id]
+                      ? activeCharacter.skillProficiencies.filter((id) => id !== skill.id)
+                      : [...activeCharacter.skillProficiencies, skill.id]
                     updateActiveCharacter({ skillProficiencies: list })
                   }}
                 />
-                {s.name}
+                {skill.name}
               </label>
             )
           })}
         </div>
-        <h4>Спасброски</h4>
-        <div className="skills-edit">
-          {ABILITY_KEYS.map((key) => {
-            const prof = activeCharacter.saveProficiencies.includes(key)
-            return (
-              <label key={key} className="check-row">
-                <input
-                  type="checkbox"
-                  checked={prof}
-                  onChange={() => {
-                    const list = prof
-                      ? activeCharacter.saveProficiencies.filter((x) => x !== key)
-                      : [...activeCharacter.saveProficiencies, key]
-                    updateActiveCharacter({ saveProficiencies: list })
-                  }}
-                />
-                {ABILITY_LABELS[key]}
-              </label>
-            )
-          })}
-        </div>
+        <p className="muted small">
+          Спасброски класса: {derived.saveProficiencies.map((key) => ABILITY_LABELS[key]).join(', ')}
+        </p>
       </section>
 
       <section className="card">
         <h3 className="section-title">Состояния</h3>
         <div className="skills-edit">
-          {CONDITIONS_2014.map((c) => {
-            const on = activeCharacter.conditions.includes(c.id)
+          {CONDITIONS_2014.map((condition) => {
+            const on = activeCharacter.conditions.includes(condition.id)
             return (
-              <label key={c.id} className="check-row" title={c.description}>
+              <label key={condition.id} className="check-row" title={condition.description}>
                 <input
                   type="checkbox"
                   checked={on}
                   onChange={() => {
                     const list = on
-                      ? activeCharacter.conditions.filter((x) => x !== c.id)
-                      : [...activeCharacter.conditions, c.id]
+                      ? activeCharacter.conditions.filter((id) => id !== condition.id)
+                      : [...activeCharacter.conditions, condition.id]
                     updateActiveCharacter({ conditions: list })
                   }}
                 />
-                {c.name}
+                {condition.name}
               </label>
             )
           })}
         </div>
-      </section>
-
-      <section className="card">
-        <h3 className="section-title">Телефон</h3>
-        <p className="muted small">
-          С публичного адреса сайт открывается из любой сети, регистрация не нужна. Персонаж
-          хранится в браузере на этом устройстве. Если вы перешли с другого адреса, перенесите
-          данные экспортом и импортом файла.
-        </p>
       </section>
 
       <section className="card">

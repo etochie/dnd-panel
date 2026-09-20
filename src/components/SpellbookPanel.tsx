@@ -12,7 +12,7 @@ export function SpellbookPanel() {
   const { activeCharacter, derived, updateActiveCharacter } = useCharacterStore()
   const [limitBreakdown, setLimitBreakdown] = useState<CalculationBreakdown | null>(null)
 
-  const domainIds = activeCharacter.domainSpellIds
+  const domainIds = derived.domainSpellIds
   const domainSpells = getSpellsByIds(domainIds)
   const prepared = getSpellsByIds(activeCharacter.preparedSpellIds)
   const known = getSpellsByIds(activeCharacter.knownSpellIds)
@@ -86,7 +86,7 @@ export function SpellbookPanel() {
     <div className="stack gap-lg">
       <section className="card">
         <h2 className="section-title">Ячейки заклинаний</h2>
-        {activeCharacter.spellSlots.map((s) => (
+        {derived.spellSlots.map((s) => (
           <div key={s.level} className="slot-line">
             <span>
               {s.level} уровень: {s.current} / {s.max}
@@ -136,13 +136,16 @@ export function SpellbookPanel() {
 
       <section className="card">
         <h2 className="section-title">Подготовка заклинаний</h2>
+        <p>
+          Подготовлено {activeCharacter.preparedSpellIds.length} / {derived.preparedSpellLimit}
+        </p>
         <SpellPreparationPicker
           classId={activeCharacter.classId}
           level={activeCharacter.level}
-          wisdom={activeCharacter.abilities.wis}
+          wisdom={derived.abilityScores.wis}
           preparedIds={activeCharacter.preparedSpellIds}
           cantripIds={activeCharacter.cantripIds}
-          domainIds={activeCharacter.domainSpellIds}
+          domainIds={derived.domainSpellIds}
           onPreparedChange={(preparedSpellIds) => updateActiveCharacter({ preparedSpellIds })}
           onCantripsChange={(cantripIds) => updateActiveCharacter({ cantripIds })}
           onExplainLimit={() => setLimitBreakdown(derived.preparedSpellLimitBreakdown)}

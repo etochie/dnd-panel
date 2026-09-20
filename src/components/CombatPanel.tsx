@@ -1,4 +1,4 @@
-import { STANDARD_ACTIONS_2014, MECHANIC_HINTS } from '../data/combatActions'
+import { MECHANIC_HINTS } from '../data/combatActions'
 import { ACTION_TYPE_LABELS } from '../data/labels'
 import { useCharacterStore } from '../state/CharacterStore'
 import { MechanicHint } from './RulesExplanation'
@@ -39,11 +39,10 @@ export function CombatPanel({ onExplain, onMechanic }: Props) {
     })
   }
 
-  const availableActions = STANDARD_ACTIONS_2014.filter((a) => a.actionType === 'action')
   const nowSuggestions = {
-    action: availableActions.map((a) => a.name),
-    bonus: ['Нет доступных бонусных действий для этого каркаса персонажа'],
-    reaction: ['Реакция доступна, если не использована'],
+    action: derived.actions.map((item) => item.name),
+    bonus: derived.bonusActions.map((item) => item.name),
+    reaction: derived.reactions.map((item) => item.name),
     movement: [`Осталось ${activeCharacter.combat.movementRemaining} м`],
   }
 
@@ -104,7 +103,7 @@ export function CombatPanel({ onExplain, onMechanic }: Props) {
       <section className="card">
         <h3 className="section-title">Действия</h3>
         <ul className="action-list">
-          {STANDARD_ACTIONS_2014.map((a) => (
+          {[...derived.actions, ...derived.bonusActions, ...derived.reactions].map((a) => (
             <li key={a.id}>
               <button
                 type="button"

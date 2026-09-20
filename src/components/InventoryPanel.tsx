@@ -1,11 +1,10 @@
-import { getDragonbornBreath } from '../data/dragonborn'
 import { ITEM_CATEGORY_LABELS, RESOURCE_LABELS } from '../data/labels'
 import { applyLongRest, applyShortRest, previewLongRest, previewShortRest } from '../engine/rest'
 import { useCharacterStore } from '../state/CharacterStore'
 import type { InventoryItem } from '../types/character'
 
 export function InventoryPanel() {
-  const { activeCharacter, updateActiveCharacter } = useCharacterStore()
+  const { activeCharacter, derived, updateActiveCharacter } = useCharacterStore()
 
   const toggleEquip = (item: InventoryItem) => {
     if (!item.equipped && item.category === 'armor') {
@@ -50,18 +49,16 @@ export function InventoryPanel() {
   const shortPreview = previewShortRest(activeCharacter)
   const longPreview = previewLongRest(activeCharacter)
 
-  const breath =
-    activeCharacter.raceDetails?.breathType &&
-    getDragonbornBreath(activeCharacter.level, activeCharacter.raceDetails.breathType)
+  const breath = derived.breath
 
   return (
     <div className="stack gap-lg">
       <section className="card">
         <h2 className="section-title">Ресурсы</h2>
-        {activeCharacter.resources.length === 0 ? (
+        {derived.resources.length === 0 ? (
           <p className="muted">Нет ресурсов.</p>
         ) : (
-          activeCharacter.resources.map((r) => (
+          derived.resources.map((r) => (
             <div key={r.id} className="resource-row">
               <div>
                 <strong>{RESOURCE_LABELS[r.id] ?? r.name}</strong>
