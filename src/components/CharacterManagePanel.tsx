@@ -28,10 +28,13 @@ export function CharacterManagePanel({
 }) {
   const {
     characters,
-    activeCharacter,
-    derived,
+    editorCharacter,
+    editorDirty,
+    editorDerived: derived,
     setActiveCharacterId,
-    updateActiveCharacter,
+    updateEditorDraft,
+    saveEditorDraft,
+    discardEditorDraft,
     createCharacter,
     deleteCharacter,
     exportActive,
@@ -41,6 +44,13 @@ export function CharacterManagePanel({
   const [creating, setCreating] = useState(false)
   const [leveling, setLeveling] = useState(false)
   const [showAudit, setShowAudit] = useState(false)
+  const [saveFlash, setSaveFlash] = useState(false)
+
+  const saveToSheet = () => {
+    saveEditorDraft()
+    setSaveFlash(true)
+    window.setTimeout(() => setSaveFlash(false), 2500)
+  }
 
   const importFile = () => {
     const input = document.createElement('input')
@@ -58,7 +68,7 @@ export function CharacterManagePanel({
     input.click()
   }
 
-  const race = getRaceDefinition(activeCharacter.raceId)
+  const race = getRaceDefinition(editorCharacter.raceId)
   const usingManualHp = derived.usingManualHp
 
   if (creating) {
@@ -76,10 +86,10 @@ export function CharacterManagePanel({
   if (leveling) {
     return (
       <LevelUpWizard
-        character={activeCharacter}
+        character={editorCharacter}
         onCancel={() => setLeveling(false)}
         onApply={(next) => {
-          updateActiveCharacter(next)
+          updateEditorDraft(next)
           setLeveling(false)
         }}
       />
@@ -88,6 +98,29 @@ export function CharacterManagePanel({
 
   return (
     <div className="stack gap-lg">
+      <section className="editor-save-bar" aria-live="polite">
+        <div>
+          <strong>Сохранить на вкладку Лист</strong>
+          <p className="muted small">
+            {saveFlash
+              ? 'Сохранено. Вкладка Лист обновлена.'
+              : editorDirty
+                ? 'Есть несохраненные изменения.'
+                : 'Изменения попадут на лист только после сохранения.'}
+          </p>
+        </div>
+        <div className="row-actions">
+          {editorDirty && (
+            <button type="button" className="btn" onClick={discardEditorDraft}>
+              Отменить
+            </button>
+          )}
+          <button type="button" className="btn btn-primary" onClick={saveToSheet}>
+            Сохранить
+          </button>
+        </div>
+      </section>
+
       <section className="card">
         <h2 className="section-title">Создать персонажа</h2>
         <p className="muted small">Мастер последовательно спросит уровень, класс, расу, характеристики и хиты.</p>
@@ -102,8 +135,16 @@ export function CharacterManagePanel({
           Персонаж
           <select
             className="input"
-            value={activeCharacter.id}
-            onChange={(event) => setActiveCharacterId(event.target.value)}
+            value={editorCharacter.id}
+            onChange={(event) => {
+              if (
+                editorDirty &&
+                !confirm('Есть несохраненные изменения. Сменить персонажа и отменить их?')
+              ) {
+                return
+              }
+              setActiveCharacterId(event.target.value)
+            }}
           >
             {characters.map((item) => (
               <option key={item.id} value={item.id}>
@@ -116,7 +157,7 @@ export function CharacterManagePanel({
           type="button"
           className="btn"
           onClick={() => {
-            if (confirm('Удалить текущего персонажа?')) deleteCharacter(activeCharacter.id)
+            if (confirm('Удалить текущего персонажа?')) deleteCharacter(editorCharacter.id)
           }}
         >
           Удалить
@@ -129,21 +170,21 @@ export function CharacterManagePanel({
           Имя
           <input
             className="input"
-            value={activeCharacter.name}
-            onChange={(event) => updateActiveCharacter({ name: event.target.value })}
+            value={editorCharacter.name}
+            onChange={(event) => updateEditorDraft({ name: event.target.value })}
           />
         </label>
         <label className="field">
           Раса
           <select
             className="input"
-            value={activeCharacter.raceId}
+            value={editorCharacter.raceId}
             onChange={(event) => {
               const nextRace = getRaceDefinition(event.target.value)
-              updateActiveCharacter({
+              updateEditorDraft({
                 raceId: event.target.value,
                 ancestryId: nextRace?.needsAncestry
-                  ? activeCharacter.ancestryId ?? nextRace.ancestries?.[0]?.id
+                  ? editorCharacter.ancestryId ?? nextRace.ancestries?.[0]?.id
                   : undefined,
               })
             }}
@@ -160,8 +201,8 @@ export function CharacterManagePanel({
             Драконья родословная
             <select
               className="input"
-              value={activeCharacter.ancestryId ?? ''}
-              onChange={(event) => updateActiveCharacter({ ancestryId: event.target.value })}
+              value={editorCharacter.ancestryId ?? ''}
+              onChange={(event) => updateEditorDraft({ ancestryId: event.target.value })}
             >
               {DRAGONBORN_ANCESTRIES.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -175,11 +216,11 @@ export function CharacterManagePanel({
           Класс
           <select
             className="input"
-            value={activeCharacter.classId}
+            value={editorCharacter.classId}
             onChange={(event) => {
               const nextClass = event.target.value
               const first = subclassesForClass(nextClass)[0]
-              updateActiveCharacter({
+              updateEditorDraft({
                 classId: nextClass,
                 subclassId: first?.id,
                 asiChoices: [],
@@ -197,32 +238,32 @@ export function CharacterManagePanel({
           Подкласс
           <select
             className="input"
-            value={activeCharacter.subclassId ?? ''}
-            onChange={(event) => updateActiveCharacter({ subclassId: event.target.value || undefined })}
+            value={editorCharacter.subclassId ?? ''}
+            onChange={(event) => updateEditorDraft({ subclassId: event.target.value || undefined })}
           >
             <option value="">Не выбран</option>
-            {subclassesForClass(activeCharacter.classId).map((item) => (
+            {subclassesForClass(editorCharacter.classId).map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
               </option>
             ))}
           </select>
         </label>
-        <p className="muted small">Уровень: {activeCharacter.level}. Меняется только через повышение уровня.</p>
+        <p className="muted small">Уровень: {editorCharacter.level}. Меняется только через повышение уровня.</p>
         <label className="field">
           Предыстория
           <input
             className="input"
-            value={activeCharacter.background}
-            onChange={(event) => updateActiveCharacter({ background: event.target.value })}
+            value={editorCharacter.background}
+            onChange={(event) => updateEditorDraft({ background: event.target.value })}
           />
         </label>
         <label className="field">
           Мировоззрение
           <input
             className="input"
-            value={activeCharacter.alignment}
-            onChange={(event) => updateActiveCharacter({ alignment: event.target.value })}
+            value={editorCharacter.alignment}
+            onChange={(event) => updateEditorDraft({ alignment: event.target.value })}
           />
         </label>
 
@@ -232,9 +273,9 @@ export function CharacterManagePanel({
             Способ генерации
             <select
               className="input"
-              value={activeCharacter.abilityGenerationMethod}
+              value={editorCharacter.abilityGenerationMethod}
               onChange={(event) =>
-                updateActiveCharacter({
+                updateEditorDraft({
                   abilityGenerationMethod: event.target.value as AbilityGenerationMethod,
                 })
               }
@@ -245,10 +286,10 @@ export function CharacterManagePanel({
             </select>
           </label>
           <AbilityAssigner
-            method={activeCharacter.abilityGenerationMethod}
-            baseAbilities={activeCharacter.baseAbilities}
+            method={editorCharacter.abilityGenerationMethod}
+            baseAbilities={editorCharacter.baseAbilities}
             parts={derived.abilityParts}
-            onChangeBase={(baseAbilities) => updateActiveCharacter({ baseAbilities })}
+            onChangeBase={(baseAbilities) => updateEditorDraft({ baseAbilities })}
           />
           <button type="button" className="btn-small" onClick={() => onExplain(derived.asiBreakdown)}>
             Улучшение характеристик
@@ -260,11 +301,11 @@ export function CharacterManagePanel({
             <AsiPicker
               key={derived.pendingAsiLevels[0]}
               level={derived.pendingAsiLevels[0]}
-              allowFeats={activeCharacter.allowFeats}
+              allowFeats={editorCharacter.allowFeats}
               onConfirm={(choice) =>
-                updateActiveCharacter({
+                updateEditorDraft({
                   asiChoices: [
-                    ...activeCharacter.asiChoices.filter((item) => item.level !== choice.level),
+                    ...editorCharacter.asiChoices.filter((item) => item.level !== choice.level),
                     choice,
                   ],
                 })
@@ -279,10 +320,10 @@ export function CharacterManagePanel({
             Как считать хиты
             <select
               className="input"
-              value={activeCharacter.hpCalculationMethod}
+              value={editorCharacter.hpCalculationMethod}
               onChange={(event) => {
                 const hpCalculationMethod = event.target.value as HpCalculationMethod
-                updateActiveCharacter((current) => ({
+                updateEditorDraft((current) => ({
                   ...current,
                   hpCalculationMethod,
                   overrides:
@@ -297,18 +338,18 @@ export function CharacterManagePanel({
               <option value="manual">Ручное значение</option>
             </select>
           </label>
-          {activeCharacter.hpCalculationMethod === 'rolled' &&
-            Array.from({ length: Math.max(0, activeCharacter.level - 1) }, (_, index) => index + 2).map((lvl) => (
+          {editorCharacter.hpCalculationMethod === 'rolled' &&
+            Array.from({ length: Math.max(0, editorCharacter.level - 1) }, (_, index) => index + 2).map((lvl) => (
               <label key={lvl} className="field">
                 Бросок на {lvl} уровне
                 <NumberStepper
                   label={`Бросок ${lvl}`}
-                  value={activeCharacter.hpRolls[String(lvl)] ?? 1}
+                  value={editorCharacter.hpRolls[String(lvl)] ?? 1}
                   min={1}
                   max={derived.hitDice.die}
                   onChange={(value) =>
-                    updateActiveCharacter({
-                      hpRolls: { ...activeCharacter.hpRolls, [String(lvl)]: value },
+                    updateEditorDraft({
+                      hpRolls: { ...editorCharacter.hpRolls, [String(lvl)]: value },
                     })
                   }
                 />
@@ -327,12 +368,12 @@ export function CharacterManagePanel({
           <label className="field">
             Текущие хиты
             <NumberStepper
-              key={`${activeCharacter.id}-hp-${activeCharacter.currentHp}-${derived.maxHp}`}
+              key={`${editorCharacter.id}-hp-${editorCharacter.currentHp}-${derived.maxHp}`}
               label="Текущие хиты"
-              value={activeCharacter.currentHp}
+              value={editorCharacter.currentHp}
               min={0}
               max={derived.maxHp}
-              onChange={(currentHp) => updateActiveCharacter({ currentHp })}
+              onChange={(currentHp) => updateEditorDraft({ currentHp })}
             />
           </label>
           {usingManualHp && (
@@ -344,9 +385,9 @@ export function CharacterManagePanel({
                 min={1}
                 max={999}
                 onChange={(maxHp) =>
-                  updateActiveCharacter({
+                  updateEditorDraft({
                     hpCalculationMethod: 'manual',
-                    overrides: { ...activeCharacter.overrides, maxHp },
+                    overrides: { ...editorCharacter.overrides, maxHp },
                   })
                 }
               />
@@ -361,9 +402,9 @@ export function CharacterManagePanel({
                 type="button"
                 className="btn-small"
                 onClick={() =>
-                  updateActiveCharacter({
+                  updateEditorDraft({
                     hpCalculationMethod: 'manual',
-                    overrides: { ...activeCharacter.overrides, maxHp: derived.rulesMaxHp },
+                    overrides: { ...editorCharacter.overrides, maxHp: derived.rulesMaxHp },
                   })
                 }
               >
@@ -375,7 +416,7 @@ export function CharacterManagePanel({
                 type="button"
                 className="btn-small"
                 onClick={() =>
-                  updateActiveCharacter((current) => ({
+                  updateEditorDraft((current) => ({
                     ...current,
                     hpCalculationMethod: 'fixed',
                     overrides: { ...current.overrides, maxHp: undefined },
@@ -403,14 +444,14 @@ export function CharacterManagePanel({
       <section className="card">
         <h3 className="section-title">Заклинания</h3>
         <SpellPreparationPicker
-          classId={activeCharacter.classId}
-          level={activeCharacter.level}
+          classId={editorCharacter.classId}
+          level={editorCharacter.level}
           wisdom={derived.abilityScores.wis}
-          preparedIds={activeCharacter.preparedSpellIds}
-          cantripIds={activeCharacter.cantripIds}
+          preparedIds={editorCharacter.preparedSpellIds}
+          cantripIds={editorCharacter.cantripIds}
           domainIds={derived.domainSpellIds}
-          onPreparedChange={(preparedSpellIds) => updateActiveCharacter({ preparedSpellIds })}
-          onCantripsChange={(cantripIds) => updateActiveCharacter({ cantripIds })}
+          onPreparedChange={(preparedSpellIds) => updateEditorDraft({ preparedSpellIds })}
+          onCantripsChange={(cantripIds) => updateEditorDraft({ cantripIds })}
         />
       </section>
 
@@ -424,11 +465,11 @@ export function CharacterManagePanel({
         <textarea
           className="textarea"
           placeholder="Прочие владения (через запятую)"
-          value={activeCharacter.extraProficiencies.other.join(', ')}
+          value={editorCharacter.extraProficiencies.other.join(', ')}
           onChange={(event) =>
-            updateActiveCharacter({
+            updateEditorDraft({
               extraProficiencies: {
-                ...activeCharacter.extraProficiencies,
+                ...editorCharacter.extraProficiencies,
                 other: event.target.value
                   .split(',')
                   .map((item) => item.trim())
@@ -443,7 +484,7 @@ export function CharacterManagePanel({
         <h3 className="section-title">Навыки</h3>
         <div className="skills-edit">
           {SKILLS_2014.map((skill) => {
-            const prof = activeCharacter.skillProficiencies.includes(skill.id)
+            const prof = editorCharacter.skillProficiencies.includes(skill.id)
             return (
               <label key={skill.id} className="check-row">
                 <input
@@ -451,9 +492,9 @@ export function CharacterManagePanel({
                   checked={prof}
                   onChange={() => {
                     const list = prof
-                      ? activeCharacter.skillProficiencies.filter((id) => id !== skill.id)
-                      : [...activeCharacter.skillProficiencies, skill.id]
-                    updateActiveCharacter({ skillProficiencies: list })
+                      ? editorCharacter.skillProficiencies.filter((id) => id !== skill.id)
+                      : [...editorCharacter.skillProficiencies, skill.id]
+                    updateEditorDraft({ skillProficiencies: list })
                   }}
                 />
                 {skill.name}
@@ -470,7 +511,7 @@ export function CharacterManagePanel({
         <h3 className="section-title">Состояния</h3>
         <div className="skills-edit">
           {CONDITIONS_2014.map((condition) => {
-            const on = activeCharacter.conditions.includes(condition.id)
+            const on = editorCharacter.conditions.includes(condition.id)
             return (
               <label key={condition.id} className="check-row" title={condition.description}>
                 <input
@@ -478,9 +519,9 @@ export function CharacterManagePanel({
                   checked={on}
                   onChange={() => {
                     const list = on
-                      ? activeCharacter.conditions.filter((id) => id !== condition.id)
-                      : [...activeCharacter.conditions, condition.id]
-                    updateActiveCharacter({ conditions: list })
+                      ? editorCharacter.conditions.filter((id) => id !== condition.id)
+                      : [...editorCharacter.conditions, condition.id]
+                    updateEditorDraft({ conditions: list })
                   }}
                 />
                 {condition.name}
@@ -492,8 +533,14 @@ export function CharacterManagePanel({
 
       <section className="card">
         <h3 className="section-title">Сохранение</h3>
-        <p className="muted small">Данные сохраняются автоматически в хранилище браузера.</p>
+        <p className="muted small">
+          Нажмите Сохранить, чтобы перенести изменения редактора на вкладку Лист и в хранилище
+          браузера.
+        </p>
         <div className="row-actions">
+          <button type="button" className="btn btn-primary" onClick={saveToSheet}>
+            Сохранить
+          </button>
           <button type="button" className="btn" onClick={exportActive}>
             Экспорт файла
           </button>

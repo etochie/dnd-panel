@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -19,12 +20,25 @@ import {
 import { createBlankCharacter } from '../data/testCharacter'
 import { createId } from '../utils/id'
 
+type CharacterPatch = Partial<Character> | ((c: Character) => Character)
+
+interface EditorState {
+  draft: Character
+  baseline: Character
+}
+
 interface CharacterContextValue {
   characters: Character[]
   activeCharacter: Character
+  editorCharacter: Character
+  editorDirty: boolean
   derived: ReturnType<typeof deriveCharacterStats>
+  editorDerived: ReturnType<typeof deriveCharacterStats>
   setActiveCharacterId: (id: string) => void
-  updateActiveCharacter: (patch: Partial<Character> | ((c: Character) => Character)) => void
+  updateActiveCharacter: (patch: CharacterPatch) => void
+  updateEditorDraft: (patch: CharacterPatch) => void
+  saveEditorDraft: () => void
+  discardEditorDraft: () => void
   createCharacter: (character: Character) => void
   deleteCharacter: (id: string) => void
   exportActive: () => void
@@ -47,8 +61,38 @@ function normalize(character: Character): Character {
   return synced
 }
 
+function applyPatch(character: Character, patch: CharacterPatch): Character {
+  return typeof patch === 'function' ? patch(character) : { ...character, ...patch }
+}
+
+function mergeEditorDraft(stored: Character, draft: Character, baseline: Character): Character {
+  return {
+    ...draft,
+    inventory: stored.inventory,
+    journal: stored.journal,
+    money: stored.money,
+    combat: stored.combat,
+    concentration: stored.concentration,
+    tempHp: stored.tempHp,
+    currentHp: draft.currentHp !== baseline.currentHp ? draft.currentHp : stored.currentHp,
+    spellSlots: stored.spellSlots,
+    resources: stored.resources,
+  }
+}
+
+function writeCharacter(state: ReturnType<typeof loadStorage>, character: Character) {
+  const idx = state.characters.findIndex((item) => item.id === state.activeCharacterId)
+  if (idx < 0) return state
+  const characters = [...state.characters]
+  characters[idx] = character
+  const next = { ...state, characters }
+  saveStorage(next)
+  return next
+}
+
 export function CharacterProvider({ children }: { children: ReactNode }) {
   const [storage, setStorage] = useState(() => loadStorage())
+  const [editor, setEditor] = useState<EditorState | null>(null)
 
   useEffect(() => {
     saveStorage(storage)
@@ -60,28 +104,65 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
     return normalize(raw)
   }, [storage])
 
+  const editorCharacter =
+    editor && editor.draft.id === activeCharacter.id ? editor.draft : activeCharacter
+  const editorDirty = editor != null && editor.draft.id === activeCharacter.id
+
   const derived = useMemo(() => deriveCharacterStats(activeCharacter), [activeCharacter])
+  const editorDerived = useMemo(() => deriveCharacterStats(editorCharacter), [editorCharacter])
+
+  const activeRef = useRef(activeCharacter)
+  const editorRef = useRef(editor)
+  activeRef.current = activeCharacter
+  editorRef.current = editor
 
   const setActiveCharacterId = useCallback((id: string) => {
+    setEditor(null)
     setStorage((state) => ({ ...state, activeCharacterId: id }))
   }, [])
 
-  const updateActiveCharacter = useCallback(
-    (patch: Partial<Character> | ((c: Character) => Character)) => {
-      setStorage((state) => {
-        const idx = state.characters.findIndex((item) => item.id === state.activeCharacterId)
-        if (idx < 0) return state
-        const current = state.characters[idx]
-        const next = normalize(
-          touch(typeof patch === 'function' ? patch(current) : { ...current, ...patch }),
-        )
-        const characters = [...state.characters]
-        characters[idx] = next
-        return { ...state, characters }
-      })
-    },
-    [],
-  )
+  const updateActiveCharacter = useCallback((patch: CharacterPatch) => {
+    setStorage((state) => {
+      const idx = state.characters.findIndex((item) => item.id === state.activeCharacterId)
+      if (idx < 0) return state
+      const current = state.characters[idx]
+      const next = normalize(touch(applyPatch(current, patch)))
+      const characters = [...state.characters]
+      characters[idx] = next
+      return { ...state, characters }
+    })
+  }, [])
+
+  const updateEditorDraft = useCallback((patch: CharacterPatch) => {
+    setEditor((current) => {
+      const stored = activeRef.current
+      const base = current && current.draft.id === stored.id ? current.draft : stored
+      const baseline = current && current.draft.id === stored.id ? current.baseline : stored
+      return {
+        draft: applyPatch(base, patch),
+        baseline,
+      }
+    })
+  }, [])
+
+  const saveEditorDraft = useCallback(() => {
+    const current = editorRef.current
+    setStorage((state) => {
+      const idx = state.characters.findIndex((item) => item.id === state.activeCharacterId)
+      if (idx < 0) return state
+      const stored = state.characters[idx]
+      const merged =
+        current && current.draft.id === stored.id
+          ? mergeEditorDraft(stored, current.draft, current.baseline)
+          : stored
+      return writeCharacter(state, normalize(touch(merged)))
+    })
+    setEditor(null)
+  }, [])
+
+  const discardEditorDraft = useCallback(() => {
+    setEditor(null)
+  }, [])
 
   const createCharacter = useCallback((character: Character) => {
     const created = normalize({
@@ -89,6 +170,7 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
       id: character.id || createId(),
       createdAt: character.createdAt || new Date().toISOString(),
     })
+    setEditor(null)
     setStorage((state) => ({
       ...state,
       characters: [...state.characters, created],
@@ -97,6 +179,7 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const deleteCharacter = useCallback((id: string) => {
+    setEditor(null)
     setStorage((state) => {
       const characters = state.characters.filter((item) => item.id !== id)
       if (characters.length === 0) {
@@ -110,18 +193,19 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const exportActive = useCallback(() => {
-    const json = exportCharacterJson(activeCharacter)
+    const json = exportCharacterJson(editorCharacter)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${activeCharacter.name || 'персонаж'}.json`
+    a.download = `${editorCharacter.name || 'персонаж'}.json`
     a.click()
     URL.revokeObjectURL(url)
-  }, [activeCharacter])
+  }, [editorCharacter])
 
   const importCharacter = useCallback((json: string) => {
     const imported = normalize({ ...importCharacterJson(json), id: createId() })
+    setEditor(null)
     setStorage((state) => ({
       ...state,
       characters: [...state.characters, imported],
@@ -130,15 +214,22 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const resetData = useCallback(() => {
+    setEditor(null)
     setStorage(resetAllData())
   }, [])
 
   const value: CharacterContextValue = {
     characters: storage.characters,
     activeCharacter,
+    editorCharacter,
+    editorDirty,
     derived,
+    editorDerived,
     setActiveCharacterId,
     updateActiveCharacter,
+    updateEditorDraft,
+    saveEditorDraft,
+    discardEditorDraft,
     createCharacter,
     deleteCharacter,
     exportActive,

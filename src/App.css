@@ -549,3 +549,27 @@ select.input {
   flex-direction: column;
   gap: 0.45rem;
 }
+
+.editor-save-bar {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+
+.editor-save-bar p {
+  margin: 0.25rem 0 0;
+}
+
+.editor-save-bar .row-actions {
+  margin-left: auto;
+}
