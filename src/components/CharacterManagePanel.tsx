@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CONDITIONS_2014 } from '../data/conditions'
 import { labelList, PROFICIENCY_LABELS } from '../data/labels'
-import { SKILLS_2014 } from '../data/skills'
+import { reconcileSkillProficiencies } from '../rules/character/skillProficiencies'
 import {
   ABILITY_LABELS,
   CLASSES,
@@ -20,6 +20,7 @@ import { CharacterAudit } from './character/CharacterAudit'
 import { CharacterCreateWizard } from './character/CharacterCreateWizard'
 import { LevelUpWizard } from './character/LevelUpWizard'
 import { AsiPicker } from './character/AsiPicker'
+import { SkillProficiencyPicker } from './character/SkillProficiencyPicker'
 
 export function CharacterManagePanel({
   onExplain,
@@ -220,10 +221,14 @@ export function CharacterManagePanel({
             onChange={(event) => {
               const nextClass = event.target.value
               const first = subclassesForClass(nextClass)[0]
-              updateEditorDraft({
-                classId: nextClass,
-                subclassId: first?.id,
-                asiChoices: [],
+              updateEditorDraft((current) => {
+                const next = {
+                  ...current,
+                  classId: nextClass,
+                  subclassId: first?.id,
+                  asiChoices: [],
+                }
+                return { ...next, skillProficiencies: reconcileSkillProficiencies(next) }
               })
             }}
           >
@@ -250,14 +255,6 @@ export function CharacterManagePanel({
           </select>
         </label>
         <p className="muted small">Уровень: {editorCharacter.level}. Меняется только через повышение уровня.</p>
-        <label className="field">
-          Предыстория
-          <input
-            className="input"
-            value={editorCharacter.background}
-            onChange={(event) => updateEditorDraft({ background: event.target.value })}
-          />
-        </label>
         <label className="field">
           Мировоззрение
           <input
@@ -481,27 +478,12 @@ export function CharacterManagePanel({
       </section>
 
       <section className="card">
-        <h3 className="section-title">Навыки</h3>
-        <div className="skills-edit">
-          {SKILLS_2014.map((skill) => {
-            const prof = editorCharacter.skillProficiencies.includes(skill.id)
-            return (
-              <label key={skill.id} className="check-row">
-                <input
-                  type="checkbox"
-                  checked={prof}
-                  onChange={() => {
-                    const list = prof
-                      ? editorCharacter.skillProficiencies.filter((id) => id !== skill.id)
-                      : [...editorCharacter.skillProficiencies, skill.id]
-                    updateEditorDraft({ skillProficiencies: list })
-                  }}
-                />
-                {skill.name}
-              </label>
-            )
-          })}
-        </div>
+        <h3 className="section-title">Предыстория и навыки</h3>
+        <SkillProficiencyPicker
+          character={editorCharacter}
+          onBackgroundChange={(background) => updateEditorDraft({ background })}
+          onSkillsChange={(skillProficiencies) => updateEditorDraft({ skillProficiencies })}
+        />
         <p className="muted small">
           Спасброски класса: {derived.saveProficiencies.map((key) => ABILITY_LABELS[key]).join(', ')}
         </p>

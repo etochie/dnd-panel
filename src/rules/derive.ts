@@ -55,6 +55,10 @@ export interface DerivedStats {
   proficiencyBonus: number
   proficiencyBreakdown: CalculationBreakdown
   ac: number
+  acWithoutShield: number
+  shieldBonusApplied: number
+  shieldEquipped: boolean
+  shieldProficient: boolean
   acBreakdown: CalculationBreakdown
   initiative: number
   initiativeBreakdown: CalculationBreakdown
@@ -125,7 +129,14 @@ export function deriveCharacterStats(character: Character): DerivedStats {
   const spellAbility = classDef?.spellcastingAbility ?? 'wis'
   const spellcastingMod = calculateAbilityModifier(abilities.scores[spellAbility])
   const proficiencyBonus = character.overrides.proficiencyBonus ?? getProficiencyBonus(character.level)
-  const { ac, breakdown: acBreakdown } = calculateArmorClass(character)
+  const {
+    ac,
+    acWithoutShield,
+    shieldBonusApplied,
+    shieldEquipped,
+    shieldProficient,
+    breakdown: acBreakdown,
+  } = calculateArmorClass(character)
   const { value: initiative, breakdown: initiativeBreakdown } = calculateInitiative(character)
   const perception = calculateSkillBonus(character, 'perception')
   const { dc: spellSaveDc, breakdown: spellSaveDcBreakdown } = calculateSpellSaveDC(
@@ -166,6 +177,10 @@ export function deriveCharacterStats(character: Character): DerivedStats {
     proficiencyBonus,
     proficiencyBreakdown: explainProficiencyBonus(character.level),
     ac,
+    acWithoutShield,
+    shieldBonusApplied,
+    shieldEquipped,
+    shieldProficient,
     acBreakdown,
     initiative,
     initiativeBreakdown,

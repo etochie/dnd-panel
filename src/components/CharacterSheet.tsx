@@ -3,7 +3,7 @@ import { StatButton } from './StatButton'
 import type { CalculationBreakdown } from '../types/explain'
 import { CONDITIONS_2014 } from '../data/conditions'
 import { RESOURCE_LABELS } from '../data/labels'
-import { ABILITY_LABELS, formatModifier } from '../rules'
+import { ABILITY_LABELS, equipShieldOnCharacter, formatModifier, unequipShieldOnCharacter } from '../rules'
 
 interface Props {
   onExplain: (b: CalculationBreakdown) => void
@@ -60,6 +60,11 @@ export function CharacterSheet({ onExplain }: Props) {
   ]
     .filter(Boolean)
     .join(' · ')
+
+  const acWithShield =
+    derived.shieldBonusApplied > 0
+      ? derived.acWithoutShield + derived.shieldBonusApplied
+      : derived.acWithoutShield
 
   return (
     <div className="stack gap-lg">
@@ -151,6 +156,44 @@ export function CharacterSheet({ onExplain }: Props) {
         />
       </section>
 
+      <section className="card ac-shield-block">
+        <h3 className="section-title">Класс брони и щит</h3>
+        <p>
+          <strong>КД: {derived.ac}</strong>
+        </p>
+        <p className="muted small">КД без щита: {derived.acWithoutShield}</p>
+        {derived.shieldEquipped && derived.shieldProficient && derived.shieldBonusApplied > 0 && (
+          <>
+            <p className="muted small">Щит: +{derived.shieldBonusApplied}</p>
+            <p className="muted small">КД со щитом: {acWithShield}</p>
+          </>
+        )}
+        {derived.shieldEquipped && !derived.shieldProficient && (
+          <p className="warn-box small">Щит надет, но нет владения - бонус к КД не применяется.</p>
+        )}
+        <div className="row-actions">
+          <button
+            type="button"
+            className="btn-small"
+            disabled={derived.shieldEquipped}
+            onClick={() => updateActiveCharacter((c) => equipShieldOnCharacter(c))}
+          >
+            Надеть щит
+          </button>
+          <button
+            type="button"
+            className="btn-small"
+            disabled={!derived.shieldEquipped}
+            onClick={() => updateActiveCharacter((c) => unequipShieldOnCharacter(c))}
+          >
+            Снять щит
+          </button>
+          <button type="button" className="btn-small" onClick={() => onExplain(derived.acBreakdown)}>
+            Как считается?
+          </button>
+        </div>
+      </section>
+
       <section className="card">
         <h3 className="section-title">Характеристики</h3>
         <div className="ability-grid">
@@ -177,35 +220,6 @@ export function CharacterSheet({ onExplain }: Props) {
             </p>
           ))
         )}
-      </section>
-
-      <section className="card">
-        <h3 className="section-title">Ячейки (кратко)</h3>
-        <button type="button" className="link-hint" onClick={() => onExplain(derived.spellSlotsBreakdown)}>
-          Как считаются ячейки?
-        </button>
-        <div className="slot-row">
-          {derived.spellSlots.map((slot) => (
-            <span key={slot.level} className="chip">
-              {slot.level} ур.: {slot.current} / {slot.max}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      <section className="card">
-        <h3 className="section-title">Подготовка заклинаний</h3>
-        <button
-          type="button"
-          className="link-hint"
-          onClick={() => onExplain(derived.preparedSpellLimitBreakdown)}
-        >
-          Как считается лимит?
-        </button>
-        <p>
-          Подготовлено {activeCharacter.preparedSpellIds.length} / {derived.preparedSpellLimit}
-        </p>
-        <p className="muted small">Заклинания домена считаются отдельно и не занимают эти места.</p>
       </section>
 
       {derived.breath && (
@@ -237,30 +251,23 @@ export function CharacterSheet({ onExplain }: Props) {
       )}
 
       <section className="card">
-        <h3 className="section-title">Состояние хода</h3>
-        <p className="muted">
-          Действие: {activeCharacter.combat.actionUsed ? 'использовано' : 'доступно'} · Бонус:{' '}
-          {activeCharacter.combat.bonusActionUsed ? 'использовано' : 'доступно'} · Реакция:{' '}
-          {activeCharacter.combat.reactionUsed ? 'использована' : 'доступна'} · Перемещение:{' '}
-          {activeCharacter.combat.movementRemaining} м
-        </p>
-        {activeCharacter.concentration && (
-          <p className="concentration-banner">Концентрация: {activeCharacter.concentration.name}</p>
-        )}
-      </section>
-
-      <section className="card">
         <h3 className="section-title">Навыки</h3>
         <div className="skills-compact">
           {derived.skills.map((skill) => (
             <button
               key={skill.id}
               type="button"
-              className="skill-chip"
+              className="skill-chip skill-chip-detailed"
               onClick={() => onExplain(skill.breakdown)}
             >
-              <span>{skill.name}</span>
-              <strong>{skill.bonus >= 0 ? `+${skill.bonus}` : skill.bonus}</strong>
+              <span className="skill-chip-main">
+                <span>{skill.name}</span>
+                <span className="muted small">{skill.ability}</span>
+              </span>
+              <span className="skill-chip-meta">
+                {skill.proficient && <span className="skill-prof-dot" title="Владение">●</span>}
+                <strong>{skill.bonus >= 0 ? `+${skill.bonus}` : skill.bonus}</strong>
+              </span>
             </button>
           ))}
         </div>
@@ -279,17 +286,6 @@ export function CharacterSheet({ onExplain }: Props) {
             />
           ))}
         </div>
-      </section>
-
-      <section className="card">
-        <h3 className="section-title">Особенности</h3>
-        {[...derived.features.racialFeatures, ...derived.features.classFeatures, ...derived.features.subclassFeatures]
-          .filter((feature) => feature.level <= activeCharacter.level)
-          .map((feature) => (
-            <p key={feature.id}>
-              <strong>{feature.name}</strong> <span className="muted">ур. {feature.level}</span>
-            </p>
-          ))}
       </section>
 
       {activeCharacter.conditions.length > 0 && (

@@ -80,16 +80,6 @@ function mergeEditorDraft(stored: Character, draft: Character, baseline: Charact
   }
 }
 
-function writeCharacter(state: ReturnType<typeof loadStorage>, character: Character) {
-  const idx = state.characters.findIndex((item) => item.id === state.activeCharacterId)
-  if (idx < 0) return state
-  const characters = [...state.characters]
-  characters[idx] = character
-  const next = { ...state, characters }
-  saveStorage(next)
-  return next
-}
-
 export function CharacterProvider({ children }: { children: ReactNode }) {
   const [storage, setStorage] = useState(() => loadStorage())
   const [editor, setEditor] = useState<EditorState | null>(null)
@@ -146,16 +136,18 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const saveEditorDraft = useCallback(() => {
-    const current = editorRef.current
     setStorage((state) => {
       const idx = state.characters.findIndex((item) => item.id === state.activeCharacterId)
       if (idx < 0) return state
       const stored = state.characters[idx]
-      const merged =
-        current && current.draft.id === stored.id
-          ? mergeEditorDraft(stored, current.draft, current.baseline)
-          : stored
-      return writeCharacter(state, normalize(touch(merged)))
+      const current = editorRef.current
+      if (!current || current.draft.id !== stored.id) {
+        return state
+      }
+      const merged = mergeEditorDraft(stored, current.draft, current.baseline)
+      const characters = [...state.characters]
+      characters[idx] = normalize(touch(merged))
+      return { ...state, characters }
     })
     setEditor(null)
   }, [])

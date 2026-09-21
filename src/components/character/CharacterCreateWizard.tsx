@@ -6,7 +6,7 @@ import type {
   Character,
   HpCalculationMethod,
 } from '../../types/character'
-import { SKILLS_2014 } from '../../data/skills'
+import { reconcileSkillProficiencies } from '../../rules/character/skillProficiencies'
 import { createBlankCharacter } from '../../data/testCharacter'
 import {
   ABILITY_LABELS,
@@ -26,6 +26,7 @@ import { AbilityAssigner } from './AbilityAssigner'
 import { AsiPicker } from './AsiPicker'
 import { NumberStepper } from '../NumberStepper'
 import { createId } from '../../utils/id'
+import { SkillProficiencyPicker } from './SkillProficiencyPicker'
 
 const STEPS = [
   'Уровень',
@@ -67,6 +68,7 @@ export function CharacterCreateWizard({ onCreated, onCancel }: Props) {
   const [hpMethod, setHpMethod] = useState<HpCalculationMethod>('fixed')
   const [hpRolls, setHpRolls] = useState<Record<string, number>>({})
   const [manualHp, setManualHp] = useState(18)
+  const [background, setBackground] = useState('')
   const [skills, setSkills] = useState<string[]>([])
 
   const race = getRaceDefinition(raceId)
@@ -90,7 +92,12 @@ export function CharacterCreateWizard({ onCreated, onCancel }: Props) {
     character.hpCalculationMethod = hpMethod
     character.hpRolls = hpRolls
     character.overrides = hpMethod === 'manual' ? { maxHp: manualHp } : {}
-    character.skillProficiencies = skills
+    character.background = background
+    character.skillProficiencies = reconcileSkillProficiencies({
+      ...character,
+      background,
+      skillProficiencies: skills,
+    })
     character.spellSlots = getSpellSlots(classId, level)
     character.hitDiceRemaining = level
     return character
@@ -108,6 +115,7 @@ export function CharacterCreateWizard({ onCreated, onCancel }: Props) {
     name,
     race?.needsAncestry,
     raceId,
+    background,
     skills,
     subclassId,
   ])
@@ -151,8 +159,22 @@ export function CharacterCreateWizard({ onCreated, onCancel }: Props) {
   const finish = () => {
     const character = { ...draft, name: name.trim() }
     character.currentHp = hpMethod === 'manual' ? manualHp : rulesHp
+    character.skillProficiencies = reconcileSkillProficiencies(character)
     onCreated(character)
   }
+
+  const wizardCharacter = useMemo(
+    () => ({
+      ...draft,
+      background,
+      skillProficiencies: reconcileSkillProficiencies({
+        ...draft,
+        background,
+        skillProficiencies: skills,
+      }),
+    }),
+    [draft, background, skills],
+  )
 
   return (
     <div className="wizard">
@@ -181,6 +203,14 @@ export function CharacterCreateWizard({ onCreated, onCancel }: Props) {
                 setClassId(item.id)
                 const first = subclassesForClass(item.id)[0]
                 setSubclassId(first?.id ?? '')
+                setSkills((current) =>
+                  reconcileSkillProficiencies({
+                    ...draft,
+                    classId: item.id,
+                    background,
+                    skillProficiencies: current,
+                  }),
+                )
               }}
             >
               {item.name}
@@ -399,34 +429,11 @@ export function CharacterCreateWizard({ onCreated, onCancel }: Props) {
             Имя
             <input className="input" value={name} onChange={(event) => setName(event.target.value)} />
           </label>
-          <h4 className="mini-title">Навыки класса</h4>
-          <p className="muted small">
-            {classDef?.name}: выберите {classDef?.skillChoices.count ?? 0} из списка класса.
-          </p>
-          <div className="skills-edit">
-            {(classDef?.skillChoices.options ?? []).map((id) => {
-              const skill = SKILLS_2014.find((item) => item.id === id)
-              const checked = skills.includes(id)
-              return (
-                <label key={id} className="check-row">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => {
-                      if (checked) {
-                        setSkills(skills.filter((item) => item !== id))
-                        return
-                      }
-                      const limit = classDef?.skillChoices.count ?? 0
-                      if (skills.length >= limit) return
-                      setSkills([...skills, id])
-                    }}
-                  />
-                  {skill?.name ?? id}
-                </label>
-              )
-            })}
-          </div>
+          <SkillProficiencyPicker
+            character={wizardCharacter}
+            onBackgroundChange={setBackground}
+            onSkillsChange={setSkills}
+          />
         </>
       )}
 

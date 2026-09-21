@@ -381,6 +381,57 @@ select.input {
   min-height: 40px;
 }
 
+.skill-chip-detailed {
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+}
+
+.skill-chip-main,
+.skill-chip-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.skill-prof-dot {
+  color: var(--accent);
+  margin-right: 0.25rem;
+}
+
+.item-row-edit {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.item-row-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.item-name-input {
+  font-weight: 600;
+}
+
+.item-row-actions {
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.item-qty-field {
+  margin-bottom: 0;
+}
+
+.ac-shield-block .warn-box.small {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+}
+
 .btn-icon {
   background: none;
   border: none;

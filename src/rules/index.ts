@@ -38,7 +38,23 @@ export {
 } from './races'
 export { DRAGONBORN_ANCESTRIES } from './races/dragonborn'
 
-export { calculateArmorClass, calculateInitiative, calculatePassivePerception } from './combat/armorClass'
+export {
+  calculateArmorClass,
+  calculateInitiative,
+  calculatePassivePerception,
+} from './combat/armorClass'
+export type { ArmorClassResult } from './combat/armorClass'
+export {
+  createStandardShield,
+  equipShieldOnCharacter,
+  findEquippedShield,
+  unequipShieldOnCharacter,
+} from './combat/shieldInventory'
+export {
+  getSkillSelectionLimits,
+  reconcileSkillProficiencies,
+  toggleClassSkill,
+} from './character/skillProficiencies'
 export { calculateAllSavingThrows, calculateSavingThrow, getEffectiveSaveProficiencies } from './combat/saves'
 export { calculateAllSkills, calculateSkillBonus } from './combat/skills'
 export { calculateAttacks } from './combat/attacks'

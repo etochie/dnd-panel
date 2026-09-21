@@ -2,25 +2,34 @@ import type { Character } from '../../types/character'
 import type { CalculationBreakdown } from '../../types/explain'
 import { calculateAbilityModifier, formatModifier } from '../core/abilities'
 import { resolveAbilityScores } from '../generation/resolveAbilities'
+import { getGrantedProficiencies } from '../classes'
+import { findEquippedShield } from './shieldInventory'
 
-export function calculateArmorClass(character: Character): {
+export interface ArmorClassResult {
   ac: number
+  acWithoutShield: number
+  shieldBonusApplied: number
+  shieldEquipped: boolean
+  shieldProficient: boolean
   breakdown: CalculationBreakdown
-} {
-  const dexMod = calculateAbilityModifier(resolveAbilityScores(character).scores.dex)
+}
+
+function hasShieldProficiency(character: Character): boolean {
+  const granted = getGrantedProficiencies(character.classId, character.subclassId)
+  const armor = [...new Set([...granted.armor, ...character.extraProficiencies.armor])]
+  return armor.includes('shield')
+}
+
+function baseArmorClassWithoutShield(
+  character: Character,
+  dexMod: number,
+): { ac: number; lines: string[]; armorName?: string } {
   const equippedArmor = character.inventory.find((item) => item.equipped && item.category === 'armor')
-  const equippedShield = character.inventory.find((item) => item.equipped && item.category === 'shield')
-  const shieldBonus = equippedShield?.shieldBonus ?? 0
 
   if (!equippedArmor || equippedArmor.armorBaseAc == null) {
-    const ac = 10 + dexMod + shieldBonus
-    const lines = ['Без брони: 10 + модификатор ловкости']
-    if (shieldBonus) lines.push(`Щит: +${shieldBonus}`)
-    lines.push(`10 + ${formatModifier(dexMod)}${shieldBonus ? ` + ${shieldBonus}` : ''} = ${ac}`)
-    return {
-      ac,
-      breakdown: { title: 'Класс брони', result: String(ac), lines },
-    }
+    const ac = 10 + dexMod
+    const lines = ['Без брони: 10 + модификатор ловкости', `10 + ${formatModifier(dexMod)} = ${ac}`]
+    return { ac, lines }
   }
 
   const base = equippedArmor.armorBaseAc
@@ -35,11 +44,41 @@ export function calculateArmorClass(character: Character): {
   } else {
     lines.push('Тяжелая броня: модификатор ловкости не добавляется')
   }
-  const ac = base + dexPart + shieldBonus
-  if (shieldBonus) lines.push(`Щит: +${shieldBonus}`)
-  lines.push(`${base} + ${dexPart}${shieldBonus ? ` + ${shieldBonus}` : ''} = ${ac}`)
+  const ac = base + dexPart
+  lines.push(`${base} + ${dexPart} = ${ac}`)
+  return { ac, lines, armorName: equippedArmor.name }
+}
+
+export function calculateArmorClass(character: Character): ArmorClassResult {
+  const dexMod = calculateAbilityModifier(resolveAbilityScores(character).scores.dex)
+  const equippedShield = findEquippedShield(character)
+  const shieldProficient = hasShieldProficiency(character)
+  const shieldEquipped = Boolean(equippedShield)
+  const rawShieldBonus = equippedShield?.shieldBonus ?? 0
+  const shieldBonusApplied =
+    shieldEquipped && shieldProficient && rawShieldBonus > 0 ? rawShieldBonus : 0
+
+  const base = baseArmorClassWithoutShield(character, dexMod)
+  const acWithoutShield = base.ac
+  const ac = acWithoutShield + shieldBonusApplied
+
+  const lines = [...base.lines]
+  if (shieldEquipped && !shieldProficient) {
+    lines.push('Щит экипирован, но нет владения щитом - бонус не применяется')
+  } else if (shieldBonusApplied) {
+    lines.push(`Щит: +${shieldBonusApplied}`)
+    lines.push(`КД без щита: ${acWithoutShield}`)
+    lines.push(`КД со щитом: ${acWithoutShield} + ${shieldBonusApplied} = ${ac}`)
+  } else {
+    lines.push(`Итоговый КД: ${ac}`)
+  }
+
   return {
     ac,
+    acWithoutShield,
+    shieldBonusApplied,
+    shieldEquipped,
+    shieldProficient,
     breakdown: { title: 'Класс брони', result: String(ac), lines },
   }
 }
