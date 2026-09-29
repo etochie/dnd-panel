@@ -1,5 +1,15 @@
+import { useState } from 'react'
+import { EQUIPMENT_CATALOG, createCatalogItem } from '../data/equipmentCatalog'
 import { ITEM_CATEGORY_LABELS, RESOURCE_LABELS } from '../data/labels'
 import { applyLongRest, applyShortRest, previewLongRest, previewShortRest } from '../engine/rest'
+import {
+  describeItemWear,
+  equipItemOnCharacter,
+  itemInSlot,
+  listEquipmentSlots,
+  slotsForDisplay,
+  unequipItemOnCharacter,
+} from '../rules/combat/equipment'
 import { useCharacterStore } from '../state/CharacterStore'
 import type { InventoryItem, ItemCategory } from '../types/character'
 import { createId } from '../utils/id'
@@ -13,6 +23,17 @@ const CATEGORY_OPTIONS: ItemCategory[] = [
   'magic',
   'tool',
   'other',
+]
+
+const WEAR_CHOICES = [
+  { id: '', label: 'не носится' },
+  { id: 'one_hand', label: 'одна рука' },
+  { id: 'two_hands', label: 'две руки' },
+  { id: 'versatile', label: 'универсальное' },
+  { id: 'ring', label: 'кольцо' },
+  ...listEquipmentSlots()
+    .filter((slot) => !['right_hand', 'left_hand', 'ring_1', 'ring_2'].includes(slot.id))
+    .map((slot) => ({ id: slot.id, label: slot.label })),
 ]
 
 function createBlankItem(): InventoryItem {
@@ -30,34 +51,22 @@ function createBlankItem(): InventoryItem {
 
 export function InventoryPanel() {
   const { activeCharacter, derived, updateActiveCharacter } = useCharacterStore()
+  const [catalogId, setCatalogId] = useState('chain_mail')
+  const [equipMessage, setEquipMessage] = useState<string | null>(null)
 
   const updateInventory = (map: (items: InventoryItem[]) => InventoryItem[]) => {
     updateActiveCharacter((c) => ({ ...c, inventory: map(c.inventory) }))
   }
 
   const toggleEquip = (item: InventoryItem) => {
-    if (!item.equipped && item.category === 'armor') {
-      const hasArmor = activeCharacter.inventory.some(
-        (i) => i.equipped && i.category === 'armor' && i.id !== item.id,
-      )
-      if (hasArmor) {
-        alert('Уже экипирована другая броня. Снимите её сначала.')
-        return
-      }
+    if (item.equipped) {
+      setEquipMessage(null)
+      updateActiveCharacter((c) => unequipItemOnCharacter(c, item.id))
+      return
     }
-    updateActiveCharacter((c) => ({
-      ...c,
-      inventory: c.inventory.map((i) => {
-        if (i.id === item.id) return { ...i, equipped: !i.equipped }
-        if (!item.equipped && item.category === 'armor' && i.category === 'armor') {
-          return { ...i, equipped: false }
-        }
-        if (!item.equipped && item.category === 'shield' && i.category === 'shield') {
-          return { ...i, equipped: false }
-        }
-        return i
-      }),
-    }))
+    const preview = equipItemOnCharacter(activeCharacter, item.id)
+    setEquipMessage(preview.warnings[0] ?? null)
+    updateActiveCharacter((c) => equipItemOnCharacter(c, item.id).character)
   }
 
   const updateItem = (id: string, patch: Partial<InventoryItem>) => {
@@ -71,6 +80,12 @@ export function InventoryPanel() {
 
   const addItem = () => {
     updateInventory((items) => [...items, createBlankItem()])
+  }
+
+  const addCatalogItem = () => {
+    const item = createCatalogItem(catalogId)
+    if (!item) return
+    updateInventory((items) => [...items, item])
   }
 
   const useResource = (id: string) => {
@@ -167,6 +182,23 @@ export function InventoryPanel() {
 
       <section className="card">
         <h3 className="section-title">Экипировка</h3>
+        <div className="slot-grid">
+          {slotsForDisplay(activeCharacter.inventory).map((slot) => {
+            const worn = itemInSlot(activeCharacter.inventory, slot.id)
+            return (
+              <div key={slot.id} className="slot-cell">
+                <span className="muted small">{slot.label}</span>
+                <div>{worn ? worn.name : 'пусто'}</div>
+              </div>
+            )
+          })}
+        </div>
+        {equipMessage && <p className="warn-box small">{equipMessage}</p>}
+        {derived.acWarnings.map((warning) => (
+          <p key={warning} className="warn-box small">
+            {warning}
+          </p>
+        ))}
         {equipped.length === 0 ? (
           <p className="muted">Ничего не экипировано.</p>
         ) : (
@@ -198,6 +230,21 @@ export function InventoryPanel() {
             />
           ))
         )}
+        <div className="catalog-add">
+          <label className="field">
+            Снаряжение из правил
+            <select className="input" value={catalogId} onChange={(e) => setCatalogId(e.target.value)}>
+              {EQUIPMENT_CATALOG.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="btn" onClick={addCatalogItem}>
+            Добавить из списка
+          </button>
+        </div>
         <button type="button" className="btn" onClick={addItem}>
           Добавить предмет
         </button>
@@ -224,6 +271,8 @@ function InventoryItemRow({
   onToggleEquip: () => void
   equippedView?: boolean
 }) {
+  const wearValue = item.equipmentSlot ?? ''
+
   return (
     <div className="item-row item-row-edit">
       <div className="item-row-fields">
@@ -233,6 +282,11 @@ function InventoryItemRow({
           aria-label="Название предмета"
           onChange={(e) => onUpdate({ name: e.target.value })}
         />
+        <p className="muted small">
+          {item.equipped ? 'Надето' : 'В инвентаре'}
+          {' · '}
+          {describeItemWear(item)}
+        </p>
         <label className="field item-qty-field">
           Кол-во
           <NumberStepper
@@ -252,12 +306,22 @@ function InventoryItemRow({
               onChange={(e) => {
                 const category = e.target.value as ItemCategory
                 const patch: Partial<InventoryItem> = { category }
-                if (category === 'shield' && item.shieldBonus == null) {
-                  patch.shieldBonus = 2
-                }
-                if (category === 'armor' && item.armorBaseAc == null) {
-                  patch.armorBaseAc = 11
-                  patch.armorType = 'light'
+                if (category === 'shield') {
+                  patch.equipmentSlot = 'shield'
+                  if (item.shieldBonus == null) patch.shieldBonus = 2
+                } else if (category === 'armor') {
+                  patch.equipmentSlot = 'armor'
+                  if (item.armorBaseAc == null) patch.armorBaseAc = 11
+                  if (!item.armorType) patch.armorType = 'light'
+                } else if (category === 'weapon') {
+                  patch.equipmentSlot =
+                    item.equipmentSlot === 'two_hands' || item.equipmentSlot === 'versatile'
+                      ? item.equipmentSlot
+                      : 'one_hand'
+                } else if (category === 'consumable' || category === 'tool') {
+                  patch.equipmentSlot = ''
+                  patch.equipped = false
+                  patch.equippedSlots = undefined
                 }
                 onUpdate(patch)
               }}
@@ -265,6 +329,44 @@ function InventoryItemRow({
               {CATEGORY_OPTIONS.map((cat) => (
                 <option key={cat} value={cat}>
                   {ITEM_CATEGORY_LABELS[cat]}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {item.category === 'weapon' && !equippedView && (
+          <label className="field">
+            Хват
+            <select
+              className="input"
+              value={
+                wearValue === 'two_hands' || wearValue === 'versatile' ? wearValue : 'one_hand'
+              }
+              onChange={(e) => onUpdate({ equipmentSlot: e.target.value })}
+            >
+              <option value="one_hand">одна рука</option>
+              <option value="versatile">универсальное</option>
+              <option value="two_hands">две руки</option>
+            </select>
+          </label>
+        )}
+        {(item.category === 'magic' || item.category === 'other') && !equippedView && (
+          <label className="field">
+            Слот
+            <select
+              className="input"
+              value={wearValue}
+              onChange={(e) =>
+                onUpdate({
+                  equipmentSlot: e.target.value,
+                  equipped: e.target.value === '' ? false : item.equipped,
+                  equippedSlots: e.target.value === '' ? undefined : item.equippedSlots,
+                })
+              }
+            >
+              {WEAR_CHOICES.map((choice) => (
+                <option key={choice.id || 'none'} value={choice.id}>
+                  {choice.label}
                 </option>
               ))}
             </select>
@@ -283,14 +385,45 @@ function InventoryItemRow({
           </label>
         )}
         {item.category === 'armor' && (
+          <>
+            <label className="field">
+              Тип брони
+              <select
+                className="input"
+                value={item.armorType ?? 'light'}
+                onChange={(e) => {
+                  const armorType = e.target.value as 'light' | 'medium' | 'heavy'
+                  if (armorType === 'heavy') onUpdate({ armorType, armorMaxDex: null })
+                  else if (armorType === 'medium') onUpdate({ armorType, armorMaxDex: 2 })
+                  else onUpdate({ armorType, armorMaxDex: undefined })
+                }}
+              >
+                <option value="light">легкая</option>
+                <option value="medium">средняя</option>
+                <option value="heavy">тяжелая</option>
+              </select>
+            </label>
+            <label className="field">
+              База КД
+              <NumberStepper
+                label="База КД брони"
+                value={item.armorBaseAc ?? 11}
+                min={10}
+                max={20}
+                onChange={(armorBaseAc) => onUpdate({ armorBaseAc })}
+              />
+            </label>
+          </>
+        )}
+        {(item.category === 'armor' || item.category === 'shield' || item.category === 'magic') && (
           <label className="field">
-            База КД
+            Магический бонус КД
             <NumberStepper
-              label="База КД брони"
-              value={item.armorBaseAc ?? 11}
-              min={10}
-              max={20}
-              onChange={(armorBaseAc) => onUpdate({ armorBaseAc })}
+              label="Магический бонус КД"
+              value={item.acBonus ?? 0}
+              min={0}
+              max={5}
+              onChange={(acBonus) => onUpdate({ acBonus })}
             />
           </label>
         )}
