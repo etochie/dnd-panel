@@ -20,6 +20,8 @@ export interface ArmorClassResult {
   shieldEquipped: boolean
   shieldProficient: boolean
   armorName: string | null
+  armorType: ArmorWeight | null
+  armorTypeLabel: string | null
   shieldName: string | null
   formulaId: string
   summary: string
@@ -28,12 +30,25 @@ export interface ArmorClassResult {
   breakdown: CalculationBreakdown
 }
 
+export type ArmorWeight = 'light' | 'medium' | 'heavy'
+
 interface ArmorStats {
   name: string
   base: number
-  type: 'light' | 'medium' | 'heavy'
-  maxDex: number | null | undefined
+  type: ArmorWeight
   strengthRequirement?: number
+}
+
+export const ARMOR_TYPE_AC_HINT: Record<ArmorWeight, string> = {
+  light: 'Легкая: КД = база + модификатор ловкости',
+  medium: 'Средняя: КД = база + модификатор ловкости, не выше +2',
+  heavy: 'Тяжелая: КД = база. Ловкость не добавляется',
+}
+
+const ARMOR_TYPE_NOUN: Record<ArmorWeight, string> = {
+  light: 'легкая',
+  medium: 'средняя',
+  heavy: 'тяжелая',
 }
 
 interface Formula {
@@ -73,53 +88,53 @@ function proficiencyList(character: Character): Set<string> {
   return new Set([...granted.armor, ...character.extraProficiencies.armor])
 }
 
+function isArmorWeight(value: string | undefined): value is ArmorWeight {
+  return value === 'light' || value === 'medium' || value === 'heavy'
+}
+
+function resolveArmorType(item: InventoryItem, knownType?: ArmorWeight): ArmorWeight | null {
+  if (isArmorWeight(item.armorType)) return item.armorType
+  if (knownType) return knownType
+  if (item.armorMaxDex === null) return 'heavy'
+  if (typeof item.armorMaxDex === 'number') return 'medium'
+  if (item.category === 'armor' || item.armorBaseAc != null) return 'light'
+  return null
+}
+
 function armorStats(item: InventoryItem): ArmorStats | null {
-  if (item.armorBaseAc != null && item.armorType) {
-    return {
-      name: item.name,
-      base: item.armorBaseAc,
-      type: item.armorType,
-      maxDex: item.armorType === 'heavy' ? null : item.armorMaxDex,
-      strengthRequirement: item.strengthRequirement,
-    }
-  }
   const known = findCatalogEntryByName(item.name)
-  if (!known || known.armorBaseAc == null || !known.armorType) return null
+  const type = resolveArmorType(item, known?.armorType)
+  const base = item.armorBaseAc ?? known?.armorBaseAc
+  if (base == null || !type) return null
   return {
     name: item.name,
-    base: known.armorBaseAc,
-    type: known.armorType,
-    maxDex: known.armorType === 'heavy' ? null : known.armorMaxDex,
-    strengthRequirement: known.strengthRequirement,
+    base,
+    type,
+    strengthRequirement: item.strengthRequirement ?? known?.strengthRequirement,
   }
 }
 
 function dexOnArmor(
   dexMod: number,
-  stats: ArmorStats,
+  type: ArmorWeight,
 ): { applied: number | null; text: string; detail: string } {
-  if (stats.type === 'heavy' || stats.maxDex === null) {
+  if (type === 'heavy') {
     return {
       applied: null,
-      text: 'ловкость не применяется',
-      detail: 'Тяжелая броня: модификатор ловкости не добавляется',
+      text: 'без модификатора ловкости',
+      detail:
+        'Тяжелая броня: модификатор ловкости не добавляется. Отрицательная ловкость КД не снижает.',
     }
   }
-  if (stats.type === 'medium') {
-    const cap = stats.maxDex ?? 2
-    const applied = Math.min(dexMod, cap)
+  if (type === 'medium') {
+    const applied = Math.min(dexMod, 2)
+    const limited = dexMod > 2
     return {
       applied,
       text: `ловкость ${formatModifier(applied)}`,
-      detail: `Средняя броня: модификатор ловкости не выше ${formatModifier(cap)}, учтено ${formatModifier(applied)}`,
-    }
-  }
-  if (typeof stats.maxDex === 'number') {
-    const applied = Math.min(dexMod, stats.maxDex)
-    return {
-      applied,
-      text: `ловкость ${formatModifier(applied)}`,
-      detail: `Легкая броня: модификатор ловкости не выше ${formatModifier(stats.maxDex)}, учтено ${formatModifier(applied)}`,
+      detail: limited
+        ? `Средняя броня: модификатор ловкости ${formatModifier(dexMod)} ограничен до +2`
+        : `Средняя броня: добавляется модификатор ловкости ${formatModifier(applied)}, не выше +2`,
     }
   }
   return {
@@ -154,7 +169,7 @@ function collectFormulas(
 ): Formula[] {
   const formulas: Formula[] = []
   if (armor) {
-    const dex = dexOnArmor(dexMod, armor)
+    const dex = dexOnArmor(dexMod, armor.type)
     const dexPart = dex.applied ?? 0
     formulas.push({
       id: 'armor',
@@ -166,7 +181,10 @@ function collectFormulas(
       extraValues: [],
       totalBeforeShield: armor.base + dexPart,
       allowsShield: true,
-      detail: [`Броня: ${armor.name}, база ${armor.base}`, dex.detail],
+      detail: [
+        `Броня: ${armor.name}, ${ARMOR_TYPE_NOUN[armor.type]}, база ${armor.base}`,
+        dex.detail,
+      ],
     })
   }
 
@@ -295,7 +313,15 @@ export function calculateArmorClass(
 
   const acWithoutShield = formula.totalBeforeShield + other
   const ac = acWithoutShield + shieldBonusApplied
-  const summary = `${ac} = ${[formula.basePiece, formula.dexText, ...formula.extraPieces, `щит ${formatModifier(shieldBonusApplied)}`, `прочее ${formatModifier(other)}`].join(' + ')}`
+  const core =
+    formula.dexApplied == null && formula.id === 'armor'
+      ? `${formula.basePiece}, ${formula.dexText}`
+      : [formula.basePiece, formula.dexText, ...formula.extraPieces].join(' + ')
+  const bonuses = [
+    ...(shieldBonusApplied !== 0 ? [`щит ${formatModifier(shieldBonusApplied)}`] : []),
+    ...(other !== 0 ? [`прочее ${formatModifier(other)}`] : []),
+  ]
+  const summary = bonuses.length > 0 ? `${ac} = ${[core, ...bonuses].join(' + ')}` : `${ac} = ${core}`
 
   const warnings: string[] = []
   const proficient = proficiencyList(character)
@@ -361,6 +387,8 @@ export function calculateArmorClass(
     shieldEquipped,
     shieldProficient: proficient.has('shield'),
     armorName: armorItem?.name ?? null,
+    armorType: stats?.type ?? null,
+    armorTypeLabel: stats ? ARMOR_TYPE_NOUN[stats.type] : null,
     shieldName: shieldItem?.name ?? null,
     formulaId: formula.id,
     summary,

@@ -61,6 +61,8 @@ export interface DerivedStats {
   shieldEquipped: boolean
   shieldProficient: boolean
   armorName: string | null
+  armorType: 'light' | 'medium' | 'heavy' | null
+  armorTypeLabel: string | null
   shieldName: string | null
   acSummary: string
   acWarnings: string[]
@@ -143,6 +145,8 @@ export function deriveCharacterStats(character: Character): DerivedStats {
     shieldEquipped,
     shieldProficient,
     armorName,
+    armorType,
+    armorTypeLabel,
     shieldName,
     summary: acSummary,
     warnings: acWarnings,
@@ -195,6 +199,8 @@ export function deriveCharacterStats(character: Character): DerivedStats {
     shieldEquipped,
     shieldProficient,
     armorName,
+    armorType,
+    armorTypeLabel,
     shieldName,
     acSummary,
     acWarnings,

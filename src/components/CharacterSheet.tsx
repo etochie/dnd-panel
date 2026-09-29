@@ -170,7 +170,10 @@ export function CharacterSheet({ onExplain }: Props) {
           </button>
         </p>
         <p className="muted small">{derived.acSummary}</p>
-        <p className="muted small">Броня: {derived.armorName ?? 'нет'}</p>
+        <p className="muted small">
+          Броня: {derived.armorName ?? 'нет'}
+          {derived.armorTypeLabel ? ` (${derived.armorTypeLabel})` : ''}
+        </p>
         <p className="muted small">Щит: {derived.shieldName ?? 'нет'}</p>
         <p className="muted small">КД без щита: {derived.acWithoutShield}</p>
         {derived.acWarnings.map((warning, index) => (
