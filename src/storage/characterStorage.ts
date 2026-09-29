@@ -1,5 +1,6 @@
 import type { AppStorage, Character } from '../types/character'
 import { createTestCleric } from '../data/testCharacter'
+import { normalizeInventory } from '../rules/combat/equipment'
 import { migrateCharacter } from './migrateCharacter'
 
 const STORAGE_KEY = 'dnd-panel-characters-v2'
@@ -8,7 +9,7 @@ function emptyStorage(): AppStorage {
   const test = createTestCleric()
   return {
     version: 2,
-    characters: [test],
+    characters: [{ ...test, inventory: normalizeInventory(test.inventory) }],
     activeCharacterId: test.id,
   }
 }

@@ -61,11 +61,6 @@ export function CharacterSheet({ onExplain }: Props) {
     .filter(Boolean)
     .join(' · ')
 
-  const acWithShield =
-    derived.shieldBonusApplied > 0
-      ? derived.acWithoutShield + derived.shieldBonusApplied
-      : derived.acWithoutShield
-
   return (
     <div className="stack gap-lg">
       <section className="card hero-card">
@@ -105,7 +100,13 @@ export function CharacterSheet({ onExplain }: Props) {
       </section>
 
       <section className="grid-stats">
-        <StatButton label="КД" value={String(derived.ac)} breakdown={derived.acBreakdown} onExplain={onExplain} />
+        <StatButton
+          label="КД"
+          value={String(derived.ac)}
+          breakdown={derived.acBreakdown}
+          onExplain={onExplain}
+          hint={derived.acSummary}
+        />
         <StatButton
           label="Инициатива"
           value={formatModifier(derived.initiative)}
@@ -159,18 +160,24 @@ export function CharacterSheet({ onExplain }: Props) {
       <section className="card ac-shield-block">
         <h3 className="section-title">Класс брони и щит</h3>
         <p>
-          <strong>КД: {derived.ac}</strong>
+          <button
+            type="button"
+            className="hp-value hp-value-btn"
+            title={derived.acSummary}
+            onClick={() => onExplain(derived.acBreakdown)}
+          >
+            КД: {derived.ac}
+          </button>
         </p>
+        <p className="muted small">{derived.acSummary}</p>
+        <p className="muted small">Броня: {derived.armorName ?? 'нет'}</p>
+        <p className="muted small">Щит: {derived.shieldName ?? 'нет'}</p>
         <p className="muted small">КД без щита: {derived.acWithoutShield}</p>
-        {derived.shieldEquipped && derived.shieldProficient && derived.shieldBonusApplied > 0 && (
-          <>
-            <p className="muted small">Щит: +{derived.shieldBonusApplied}</p>
-            <p className="muted small">КД со щитом: {acWithShield}</p>
-          </>
-        )}
-        {derived.shieldEquipped && !derived.shieldProficient && (
-          <p className="warn-box small">Щит надет, но нет владения - бонус к КД не применяется.</p>
-        )}
+        {derived.acWarnings.map((warning, index) => (
+          <p key={`${index}-${warning}`} className="warn-box small">
+            {warning}
+          </p>
+        ))}
         <div className="row-actions">
           <button
             type="button"

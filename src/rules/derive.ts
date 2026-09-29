@@ -45,6 +45,7 @@ import { explainSpellSlots, mergeSpellSlotUsage } from './spells/slots'
 import { preparedSpellLimitForCharacter } from './spells/preparation'
 import { calculateSpellAttackBonus, calculateSpellSaveDC } from './spells/spellcasting'
 import { validateCharacter } from './validation/validateCharacter'
+import { normalizeInventory } from './combat/equipment'
 import { feetToMeters } from '../data/distances'
 
 export interface DerivedStats {
@@ -59,6 +60,10 @@ export interface DerivedStats {
   shieldBonusApplied: number
   shieldEquipped: boolean
   shieldProficient: boolean
+  armorName: string | null
+  shieldName: string | null
+  acSummary: string
+  acWarnings: string[]
   acBreakdown: CalculationBreakdown
   initiative: number
   initiativeBreakdown: CalculationBreakdown
@@ -113,10 +118,12 @@ export interface DerivedStats {
 
 export function syncCharacterRuntime(character: Character): Character {
   const slots = mergeSpellSlotUsage(character.classId, character.level, character.spellSlots)
+  const inventory = normalizeInventory(character.inventory)
   return {
     ...character,
+    inventory,
     spellSlots: slots,
-    resources: getRulesResources({ ...character, spellSlots: slots }),
+    resources: getRulesResources({ ...character, spellSlots: slots, inventory }),
   }
 }
 
@@ -135,6 +142,11 @@ export function deriveCharacterStats(character: Character): DerivedStats {
     shieldBonusApplied,
     shieldEquipped,
     shieldProficient,
+    armorName,
+    shieldName,
+    summary: acSummary,
+    warnings: acWarnings,
+    speedPenaltyMeters,
     breakdown: acBreakdown,
   } = calculateArmorClass(character)
   const { value: initiative, breakdown: initiativeBreakdown } = calculateInitiative(character)
@@ -148,7 +160,8 @@ export function deriveCharacterStats(character: Character): DerivedStats {
     spellcastingMod,
   )
   const rulesSpeed = getRaceSpeedMeters(character.raceId)
-  const speed = character.overrides.speed ?? rulesSpeed
+  const speedPenalty = character.overrides.speed == null ? speedPenaltyMeters : 0
+  const speed = (character.overrides.speed ?? rulesSpeed) - speedPenalty
   const rulesHp = calculateRulesMaxHp(character)
   const maxHp = effectiveMaxHp(character)
   const prepared = preparedSpellLimitForCharacter(character)
@@ -181,6 +194,10 @@ export function deriveCharacterStats(character: Character): DerivedStats {
     shieldBonusApplied,
     shieldEquipped,
     shieldProficient,
+    armorName,
+    shieldName,
+    acSummary,
+    acWarnings,
     acBreakdown,
     initiative,
     initiativeBreakdown,
@@ -194,7 +211,9 @@ export function deriveCharacterStats(character: Character): DerivedStats {
           : 'Раса не задана, используется 30 футов.',
         character.overrides.speed != null
           ? `Используется ручное значение: ${speed} м. По расе: ${feetToMeters(race?.speedFeet ?? 30)}.`
-          : `Итог: ${speed} м`,
+          : speedPenalty > 0
+            ? `Броня снижает скорость на ${speedPenalty} м, потому что не хватает Силы. Итог: ${speed} м`
+            : `Итог: ${speed} м`,
       ],
     },
     maxHp,

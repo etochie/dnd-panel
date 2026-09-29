@@ -624,3 +624,58 @@ select.input {
 .editor-save-bar .row-actions {
   margin-left: auto;
 }
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.slot-cell {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.catalog-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+  margin: 0.75rem 0;
+}
+
+.catalog-add .field {
+  flex: 1 1 180px;
+  margin-bottom: 0;
+}
+
+.stat-btn[data-tooltip] {
+  position: relative;
+}
+
+.stat-btn[data-tooltip]:hover {
+  z-index: 4;
+}
+
+.stat-btn[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 5;
+  width: max-content;
+  max-width: 280px;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: normal;
+  text-align: left;
+}
