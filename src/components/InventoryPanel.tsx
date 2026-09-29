@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { EQUIPMENT_CATALOG, createCatalogItem } from '../data/equipmentCatalog'
+import { ARMOR_TYPE_AC_HINT } from '../rules/combat/armorClass'
 import { ITEM_CATEGORY_LABELS, RESOURCE_LABELS } from '../data/labels'
 import { applyLongRest, applyShortRest, previewLongRest, previewShortRest } from '../engine/rest'
 import {
@@ -193,6 +194,11 @@ export function InventoryPanel() {
             )
           })}
         </div>
+        <p>
+          <strong>КД {derived.ac}</strong>
+          {derived.armorTypeLabel ? ` · ${derived.armorTypeLabel}` : ' · без брони'}
+        </p>
+        <p className="muted small">{derived.acSummary}</p>
         {equipMessage && <p className="warn-box small">{equipMessage}</p>}
         {derived.acWarnings.map((warning) => (
           <p key={warning} className="warn-box small">
@@ -403,6 +409,7 @@ function InventoryItemRow({
                 <option value="heavy">тяжелая</option>
               </select>
             </label>
+            <p className="muted small">{ARMOR_TYPE_AC_HINT[item.armorType ?? 'light']}</p>
             <label className="field">
               База КД
               <NumberStepper

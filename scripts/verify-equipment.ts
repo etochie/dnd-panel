@@ -66,7 +66,7 @@ check('кольчуга при ловкости 8 дает КД 16', () => {
   const ac = acOf(character)
   assert.equal(ac.ac, 16)
   assert.equal(ac.formulaId, 'armor')
-  assert.ok(ac.summary.includes('ловкость не применяется'))
+  assert.ok(ac.summary.includes('без модификатора ловкости'))
   assert.ok(equippedNames(character).includes('Кольчуга'))
 })
 
@@ -128,6 +128,27 @@ check('смена брони пересчитывает КД и оставляе
   assert.equal(acOf(character).ac, 20)
   assert.equal(character.inventory.find((item) => item.name === 'Щит')?.equipped, true)
   assert.equal(character.inventory.find((item) => item.name === 'Кольчуга')?.equipped, false)
+})
+
+check('тип брони задает ловкость по правилам 2014', () => {
+  const worn = (type: 'light' | 'medium' | 'heavy', dex: number, maxDex?: number | null) => {
+    const item = catalog('leather')
+    item.name = 'Проверочный доспех'
+    item.armorBaseAc = 14
+    item.armorType = type
+    item.armorMaxDex = maxDex
+    return acOf(equip(withDex(dex, [item]), 'Проверочный доспех'))
+  }
+  assert.equal(worn('light', 16, 2).ac, 17)
+  assert.equal(worn('light', 8, null).ac, 13)
+  assert.equal(worn('medium', 16, null).ac, 16)
+  assert.equal(worn('medium', 16, 5).ac, 16)
+  assert.equal(worn('medium', 8, 2).ac, 13)
+  assert.equal(worn('heavy', 18, 2).ac, 14)
+  assert.equal(worn('heavy', 8).ac, 14)
+  assert.equal(worn('light', 16, 2).armorType, 'light')
+  assert.equal(worn('medium', 16, null).armorTypeLabel, 'средняя')
+  assert.equal(worn('heavy', 8).armorTypeLabel, 'тяжелая')
 })
 
 check('ловкость зависит от типа брони', () => {
