@@ -1,0 +1,22 @@
+---
+description: Деплой на GitHub Pages через push в main
+alwaysApply: true
+---
+
+# Деплой на GitHub Pages
+
+Публичная версия выкладывается workflow `.github/workflows/pages.yml`. Он запускается при push в ветку `main`.
+
+Когда просят задеплоить:
+
+1. Закоммить нужные изменения.
+2. Запушь в `origin` ветку `main`.
+3. Дождись успешного прогона workflow "Deploy to GitHub Pages".
+4. Сообщи адрес: https://etochie.github.io/dnd-panel/
+
+Не собирай прод через `npm run build` на хосте и не выкладывай локальный Docker. Не делай force push.
+
+```bash
+git push origin main
+gh run watch
+```
