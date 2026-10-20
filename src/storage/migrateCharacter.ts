@@ -1,7 +1,71 @@
-import type { AbilityKey, Character, ExtraProficiencies, ManualOverrides } from '../types/character'
+import type {
+  AbilityKey,
+  Character,
+  ExtraProficiencies,
+  InventoryItem,
+  ItemCategory,
+  ManualOverrides,
+} from '../types/character'
 import { ABILITY_KEYS, EMPTY_ABILITIES } from '../rules/core/types'
 import { getClassSaveProficiencies, getGrantedProficiencies } from '../rules/classes'
+import { normalizeInventory } from '../rules/combat/equipment'
 import { ancestryIdFromLegacy, getRacialAbilityBonuses, raceIdFromLegacyName } from '../rules/races'
+
+const ITEM_CATEGORIES: ItemCategory[] = [
+  'weapon',
+  'armor',
+  'shield',
+  'consumable',
+  'magic',
+  'tool',
+  'other',
+]
+
+function migrateInventoryItem(raw: unknown): InventoryItem {
+  const data = asRecord(raw)
+  const categoryRaw = stringOr(data.category, 'other')
+  const category = ITEM_CATEGORIES.includes(categoryRaw as ItemCategory)
+    ? (categoryRaw as ItemCategory)
+    : 'other'
+  const armorTypeRaw = stringOr(data.armorType, '')
+  const armorType =
+    armorTypeRaw === 'light' || armorTypeRaw === 'medium' || armorTypeRaw === 'heavy'
+      ? armorTypeRaw
+      : undefined
+  const equipmentSlot =
+    data.equipmentSlot === ''
+      ? ''
+      : typeof data.equipmentSlot === 'string'
+        ? data.equipmentSlot
+        : undefined
+  return {
+    id: stringOr(data.id, ''),
+    name: stringOr(data.name, 'Предмет'),
+    quantity: Math.max(1, Math.floor(numberOr(data.quantity, 1))),
+    weight: numberOr(data.weight, 0),
+    cost: stringOr(data.cost, ''),
+    description: stringOr(data.description, ''),
+    equipped: data.equipped === true,
+    category,
+    equipmentSlot,
+    equippedSlots: stringArray(data.equippedSlots),
+    weaponDamage: typeof data.weaponDamage === 'string' ? data.weaponDamage : undefined,
+    weaponDamageType: typeof data.weaponDamageType === 'string' ? data.weaponDamageType : undefined,
+    weaponProperties: stringArray(data.weaponProperties),
+    armorBaseAc: typeof data.armorBaseAc === 'number' ? data.armorBaseAc : undefined,
+    armorMaxDex:
+      data.armorMaxDex === null
+        ? null
+        : typeof data.armorMaxDex === 'number'
+          ? data.armorMaxDex
+          : undefined,
+    armorType,
+    strengthRequirement:
+      typeof data.strengthRequirement === 'number' ? data.strengthRequirement : undefined,
+    shieldBonus: typeof data.shieldBonus === 'number' ? data.shieldBonus : undefined,
+    acBonus: typeof data.acBonus === 'number' ? data.acBonus : undefined,
+  }
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
@@ -139,7 +203,9 @@ export function migrateCharacter(raw: unknown): Character {
     tempHp: numberOr(data.tempHp, 0),
     hitDiceRemaining: numberOr(data.hitDiceRemaining, level),
     resources: Array.isArray(data.resources) ? data.resources : [],
-    inventory: Array.isArray(data.inventory) ? data.inventory : [],
+    inventory: normalizeInventory(
+      Array.isArray(data.inventory) ? data.inventory.map((item) => migrateInventoryItem(item)) : [],
+    ),
     conditions: stringArray(data.conditions),
     journal: data.journal && typeof data.journal === 'object' ? (data.journal as Character['journal']) : emptyJournal(),
     money:

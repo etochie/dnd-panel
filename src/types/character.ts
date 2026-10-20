@@ -44,13 +44,27 @@ export interface InventoryItem {
   description: string
   equipped: boolean
   category: ItemCategory
+  /**
+   * Куда предмет надевается.
+   * Пустая строка значит, что его нельзя носить.
+   * Особые значения: one_hand, two_hands, versatile, ring.
+   * Остальные значения - это id слота, в том числе добавленного позже.
+   */
+  equipmentSlot?: string
+  /** Слоты, которые предмет занимает, пока надет. */
+  equippedSlots?: string[]
   weaponDamage?: string
   weaponDamageType?: string
   weaponProperties?: string[]
   armorBaseAc?: number
+  /** null - ловкость не добавляется. Число - верхний предел модификатора. */
   armorMaxDex?: number | null
   armorType?: 'light' | 'medium' | 'heavy'
+  /** Требование Силы для тяжелой брони. На КД не влияет. */
+  strengthRequirement?: number
   shieldBonus?: number
+  /** Магический бонус к КД, пока предмет надет. Не заменяет базу брони и бонус щита. */
+  acBonus?: number
 }
 
 export interface SpellSlotState {

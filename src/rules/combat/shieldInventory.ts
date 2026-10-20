@@ -1,14 +1,15 @@
 import type { Character, InventoryItem } from '../../types/character'
 import { createId } from '../../utils/id'
+import { equipItemOnCharacter, itemInSlot, normalizeInventory, unequipInventoryItem } from './equipment'
 
 const DEFAULT_SHIELD_BONUS = 2
 
 export function findEquippedShield(character: Character): InventoryItem | undefined {
-  return character.inventory.find((item) => item.equipped && item.category === 'shield')
+  return itemInSlot(normalizeInventory(character.inventory), 'shield')
 }
 
 export function findAnyShield(character: Character): InventoryItem | undefined {
-  return character.inventory.find((item) => item.category === 'shield')
+  return character.inventory.find((item) => item.category === 'shield' || item.equipmentSlot === 'shield')
 }
 
 export function createStandardShield(): InventoryItem {
@@ -18,35 +19,26 @@ export function createStandardShield(): InventoryItem {
     quantity: 1,
     weight: 3,
     cost: '10 зм',
-    description: 'Щит +2 к КД при владении и экипировке.',
+    description: 'Щит дает +2 к КД и занимает одну руку.',
     equipped: false,
     category: 'shield',
+    equipmentSlot: 'shield',
     shieldBonus: DEFAULT_SHIELD_BONUS,
   }
 }
 
 export function equipShieldOnCharacter(character: Character): Character {
   const shield = findAnyShield(character)
-  if (shield) {
-    return {
-      ...character,
-      inventory: character.inventory.map((item) => {
-        if (item.category !== 'shield') return item
-        return { ...item, equipped: item.id === shield.id }
-      }),
-    }
-  }
-
-  const newShield = createStandardShield()
-  newShield.equipped = true
-  return { ...character, inventory: [...character.inventory, newShield] }
+  if (shield) return equipItemOnCharacter(character, shield.id).character
+  const created = createStandardShield()
+  return equipItemOnCharacter(
+    { ...character, inventory: [...character.inventory, created] },
+    created.id,
+  ).character
 }
 
 export function unequipShieldOnCharacter(character: Character): Character {
-  return {
-    ...character,
-    inventory: character.inventory.map((item) =>
-      item.category === 'shield' ? { ...item, equipped: false } : item,
-    ),
-  }
+  const shield = findEquippedShield(character)
+  if (!shield) return character
+  return { ...character, inventory: unequipInventoryItem(character.inventory, shield.id) }
 }
