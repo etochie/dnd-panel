@@ -1,5 +1,5 @@
 ---
-description: Деплой на GitHub Pages через push в main
+description: Деплой на GitHub Pages через push в main из WSL
 alwaysApply: true
 ---
 
@@ -7,16 +7,17 @@ alwaysApply: true
 
 Публичная версия выкладывается workflow `.github/workflows/pages.yml`. Он запускается при push в ветку `main`.
 
+Пушь из WSL. В Windows-сессии нет SSH-ключа для `git@github.com`, а в WSL ключ уже есть.
+
 Когда просят задеплоить:
 
 1. Закоммить нужные изменения.
-2. Запушь в `origin` ветку `main`.
+2. Из WSL запушь в `origin` ветку `main`.
 3. Дождись успешного прогона workflow "Deploy to GitHub Pages".
 4. Сообщи адрес: https://etochie.github.io/dnd-panel/
 
 Не собирай прод через `npm run build` на хосте и не выкладывай локальный Docker. Не делай force push.
 
 ```bash
-git push origin main
-gh run watch
+wsl -e bash -lc "cd /mnt/c/Users/yzuev/projects/dnd-panel && git push origin main"
 ```
