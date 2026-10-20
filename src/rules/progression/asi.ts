@@ -3,6 +3,7 @@ import type { CalculationBreakdown } from '../../types/explain'
 import { classGainsAsiAtLevel, earnedAsiLevels, getClassDefinition } from '../classes'
 import { ABILITY_LABELS } from '../core/abilities'
 import type { AsiChoice } from '../core/types'
+import { resolveAbilityScores } from '../generation/resolveAbilities'
 
 export function hasAsiAtLevel(classId: string, level: number): boolean {
   return classGainsAsiAtLevel(classId, level)
@@ -12,6 +13,20 @@ export function getPendingAsiLevels(character: Character): number[] {
   const earned = earnedAsiLevels(character.classId, character.level)
   const taken = new Set((character.asiChoices ?? []).map((choice) => choice.level))
   return earned.filter((level) => !taken.has(level))
+}
+
+/** Предел значения характеристики по PHB 2014 */
+export const ABILITY_SCORE_CAP = 20
+
+/** Итоговые значения характеристик без учета улучшения указанного уровня */
+export function abilityScoresWithoutAsiLevel(
+  character: Character,
+  level: number,
+): Record<AbilityKey, number> {
+  return resolveAbilityScores({
+    ...character,
+    asiChoices: (character.asiChoices ?? []).filter((choice) => choice.level !== level),
+  }).scores
 }
 
 export function describeAsiChoice(choice: AsiChoice): string {

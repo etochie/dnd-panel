@@ -1,22 +1,46 @@
 import { useState } from 'react'
 import type { AbilityKey, AsiChoice } from '../../types/character'
 import { ABILITY_KEYS } from '../../rules/core/types'
-import { ABILITY_LABELS, createFeatChoice, createPlusOnePlusOneChoice, createPlusTwoChoice } from '../../rules'
+import {
+  ABILITY_LABELS,
+  ABILITY_SCORE_CAP,
+  createFeatChoice,
+  createPlusOnePlusOneChoice,
+  createPlusTwoChoice,
+} from '../../rules'
 import { OPTIONAL_FEATS_2014 } from '../../data/feats'
 
 interface Props {
   level: number
   allowFeats: boolean
+  /** Итоговые значения характеристик без улучшения этого уровня. Нужны для проверки предела 20. */
+  currentScores?: Record<AbilityKey, number>
   onConfirm: (choice: AsiChoice) => void
+  onCancel?: () => void
 }
 
-export function AsiPicker({ level, allowFeats, onConfirm }: Props) {
+export function AsiPicker({ level, allowFeats, currentScores, onConfirm, onCancel }: Props) {
   const [mode, setMode] = useState<'plus2' | 'plus1' | 'feat'>('plus2')
   const [first, setFirst] = useState<AbilityKey>('str')
   const [second, setSecond] = useState<AbilityKey>('dex')
   const [featId, setFeatId] = useState(OPTIONAL_FEATS_2014[0].id)
 
+  const overCap = (): AbilityKey[] => {
+    if (!currentScores || mode === 'feat') return []
+    const increases: Partial<Record<AbilityKey, number>> =
+      mode === 'plus2'
+        ? { [first]: 2 }
+        : first === second
+          ? { [first]: 2 }
+          : { [first]: 1, [second]: 1 }
+    return ABILITY_KEYS.filter(
+      (key) => (increases[key] ?? 0) > 0 && currentScores[key] + (increases[key] ?? 0) > ABILITY_SCORE_CAP,
+    )
+  }
+  const blocked = overCap()
+
   const submit = () => {
+    if (blocked.length > 0) return
     if (mode === 'plus2') {
       onConfirm(createPlusTwoChoice(level, first))
       return
@@ -96,9 +120,22 @@ export function AsiPicker({ level, allowFeats, onConfirm }: Props) {
           </select>
         </label>
       )}
-      <button type="button" className="btn btn-primary" onClick={submit}>
-        Подтвердить выбор
-      </button>
+      {blocked.length > 0 && (
+        <p className="warn-box small">
+          Значение характеристики не может быть выше {ABILITY_SCORE_CAP}:{' '}
+          {blocked.map((key) => ABILITY_LABELS[key]).join(', ')}.
+        </p>
+      )}
+      <div className="row-actions">
+        {onCancel && (
+          <button type="button" className="btn" onClick={onCancel}>
+            Отмена
+          </button>
+        )}
+        <button type="button" className="btn btn-primary" disabled={blocked.length > 0} onClick={submit}>
+          Подтвердить выбор
+        </button>
+      </div>
     </div>
   )
 }

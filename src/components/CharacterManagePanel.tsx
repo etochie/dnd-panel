@@ -4,6 +4,7 @@ import { labelList, PROFICIENCY_LABELS } from '../data/labels'
 import { reconcileSkillProficiencies } from '../rules/character/skillProficiencies'
 import {
   ABILITY_LABELS,
+  abilityScoresWithoutAsiLevel,
   CLASSES,
   DRAGONBORN_ANCESTRIES,
   RACES,
@@ -20,6 +21,7 @@ import { CharacterAudit } from './character/CharacterAudit'
 import { CharacterCreateWizard } from './character/CharacterCreateWizard'
 import { LevelUpWizard } from './character/LevelUpWizard'
 import { AsiPicker } from './character/AsiPicker'
+import { AsiChoicesEditor } from './character/AsiChoicesEditor'
 import { SkillProficiencyPicker } from './character/SkillProficiencyPicker'
 
 export function CharacterManagePanel({
@@ -293,12 +295,22 @@ export function CharacterManagePanel({
           </button>
         </div>
 
+        {editorCharacter.asiChoices.length > 0 && (
+          <div className="budget-block">
+            <AsiChoicesEditor
+              character={editorCharacter}
+              onChange={(asiChoices) => updateEditorDraft({ asiChoices })}
+            />
+          </div>
+        )}
+
         {derived.pendingAsiLevels.length > 0 && (
           <div className="budget-block">
             <AsiPicker
               key={derived.pendingAsiLevels[0]}
               level={derived.pendingAsiLevels[0]}
               allowFeats={editorCharacter.allowFeats}
+              currentScores={abilityScoresWithoutAsiLevel(editorCharacter, derived.pendingAsiLevels[0])}
               onConfirm={(choice) =>
                 updateEditorDraft({
                   asiChoices: [

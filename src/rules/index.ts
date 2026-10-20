@@ -62,6 +62,9 @@ export { getAvailableActions, getAvailableBonusActions, getAvailableReactions } 
 
 export { calculateRulesMaxHp, effectiveMaxHp, explainEffectiveMaxHp, getHitDice } from './progression/hitPoints'
 export {
+  ABILITY_SCORE_CAP,
+  abilityScoresWithoutAsiLevel,
+  describeAsiChoice,
   createFeatChoice,
   createPlusOnePlusOneChoice,
   createPlusTwoChoice,

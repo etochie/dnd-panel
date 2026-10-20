@@ -10,6 +10,7 @@ import { reconcileSkillProficiencies } from '../../rules/character/skillProficie
 import { createBlankCharacter } from '../../data/testCharacter'
 import {
   ABILITY_LABELS,
+  abilityScoresWithoutAsiLevel,
   CLASSES,
   DRAGONBORN_ANCESTRIES,
   RACES,
@@ -345,6 +346,7 @@ export function CharacterCreateWizard({ onCreated, onCancel }: Props) {
               key={pendingAsi[0]}
               level={pendingAsi[0]}
               allowFeats={allowFeats}
+              currentScores={abilityScoresWithoutAsiLevel(draft, pendingAsi[0])}
               onConfirm={(choice) => setAsiChoices((list) => [...list.filter((item) => item.level !== choice.level), choice])}
             />
           )}

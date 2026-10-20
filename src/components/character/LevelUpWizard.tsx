@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { AsiChoice, Character } from '../../types/character'
-import { applyLevelUp, getClassHitDie, previewLevelUp } from '../../rules'
+import { abilityScoresWithoutAsiLevel, applyLevelUp, getClassHitDie, previewLevelUp } from '../../rules'
 import { AsiPicker } from './AsiPicker'
 import { NumberStepper } from '../NumberStepper'
 
@@ -57,6 +57,7 @@ export function LevelUpWizard({ character, onApply, onCancel }: Props) {
         <AsiPicker
           level={preview.toLevel}
           allowFeats={character.allowFeats}
+          currentScores={abilityScoresWithoutAsiLevel(character, preview.toLevel)}
           onConfirm={setAsiChoice}
         />
       )}

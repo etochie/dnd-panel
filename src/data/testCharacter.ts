@@ -5,7 +5,7 @@ import { emptyJournal, emptyProficiencies } from '../storage/migrateCharacter'
 
 export function createTestCleric(): Character {
   const now = new Date().toISOString()
-  const level = 3
+  const level = 4
   const maceId = createId()
   const character: Character = {
     id: createId(),
@@ -20,14 +20,14 @@ export function createTestCleric(): Character {
     notes: '',
     abilityGenerationMethod: 'manual',
     baseAbilities: {
-      str: 12,
-      dex: 10,
-      con: 10,
+      str: 14,
+      dex: 8,
+      con: 14,
       int: 10,
-      wis: 18,
-      cha: 9,
+      wis: 14,
+      cha: 12,
     },
-    asiChoices: [],
+    asiChoices: [{ level: 4, kind: 'scores', increases: { wis: 2 } }],
     allowFeats: true,
     hpCalculationMethod: 'fixed',
     hpRolls: {},
@@ -41,7 +41,7 @@ export function createTestCleric(): Character {
     spellSlots: getSpellSlots('cleric', level),
     currentHp: 18,
     tempHp: 0,
-    hitDiceRemaining: 3,
+    hitDiceRemaining: 4,
     resources: [],
     inventory: [
       {

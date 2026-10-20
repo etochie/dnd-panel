@@ -2,7 +2,7 @@ import { useCharacterStore } from '../state/CharacterStore'
 import { StatButton } from './StatButton'
 import type { CalculationBreakdown } from '../types/explain'
 import { CONDITIONS_2014 } from '../data/conditions'
-import { RESOURCE_LABELS } from '../data/labels'
+import { formatFeetWithMeters } from '../data/distances'
 import { ABILITY_LABELS, equipShieldOnCharacter, formatModifier, unequipShieldOnCharacter } from '../rules'
 
 interface Props {
@@ -114,7 +114,7 @@ export function CharacterSheet({ onExplain }: Props) {
         />
         <StatButton
           label="Скорость"
-          value={`${derived.speed} м`}
+          value={formatFeetWithMeters(derived.speed)}
           breakdown={derived.speedBreakdown}
           onExplain={onExplain}
         />
@@ -208,47 +208,6 @@ export function CharacterSheet({ onExplain }: Props) {
           ))}
         </div>
       </section>
-
-      <section className="card">
-        <h3 className="section-title">Ресурсы</h3>
-        {derived.resources.length === 0 ? (
-          <p className="muted">Нет отслеживаемых ресурсов.</p>
-        ) : (
-          derived.resources.map((resource) => (
-            <p key={resource.id}>
-              {RESOURCE_LABELS[resource.id] ?? resource.name}: {resource.current} / {resource.max}
-            </p>
-          ))
-        )}
-      </section>
-
-      {derived.breath && (
-        <section className="card">
-          <h3 className="section-title">Драконье дыхание</h3>
-          <button
-            type="button"
-            className="link-hint"
-            onClick={() =>
-              onExplain({
-                title: 'Драконье дыхание',
-                result: derived.breath?.damage ?? '',
-                lines: derived.breath?.breakdownLines ?? [],
-              })
-            }
-          >
-            Как считается?
-          </button>
-          <ul>
-            <li>Тип: {derived.breath.damageType}</li>
-            <li>Область: {derived.breath.area}</li>
-            <li>
-              Спасбросок: {derived.breath.save}, Сл {derived.breath.saveDc}
-            </li>
-            <li>Урон: {derived.breath.damage}</li>
-            <li>Восстановление: {derived.breath.recharge}</li>
-          </ul>
-        </section>
-      )}
 
       <section className="card">
         <h3 className="section-title">Навыки</h3>

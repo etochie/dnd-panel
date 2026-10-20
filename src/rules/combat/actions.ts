@@ -55,7 +55,7 @@ export function getAvailableBonusActions(character: Character): CombatActionDef[
       id: 'no_bonus',
       name: 'Нет постоянных бонусных действий',
       actionType: 'bonus',
-      summary: 'У жреца 3 уровня нет классового бонусного действия без заклинания или способности.',
+      summary: `У жреца ${character.level} уровня нет классового бонусного действия без заклинания или способности.`,
       spends: 'Ничего.',
       after: 'Если появится подходящее заклинание, оно будет показано здесь.',
     })

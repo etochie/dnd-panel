@@ -1,4 +1,5 @@
 import { MECHANIC_HINTS } from '../data/combatActions'
+import { formatFeetWithMeters } from '../data/distances'
 import { ACTION_TYPE_LABELS } from '../data/labels'
 import { useCharacterStore } from '../state/CharacterStore'
 import { MechanicHint } from './RulesExplanation'
@@ -43,7 +44,7 @@ export function CombatPanel({ onExplain, onMechanic }: Props) {
     action: derived.actions.map((item) => item.name),
     bonus: derived.bonusActions.map((item) => item.name),
     reaction: derived.reactions.map((item) => item.name),
-    movement: [`Осталось ${activeCharacter.combat.movementRemaining} м`],
+    movement: [`Осталось ${formatFeetWithMeters(activeCharacter.combat.movementRemaining)}`],
   }
 
   return (
@@ -68,7 +69,7 @@ export function CombatPanel({ onExplain, onMechanic }: Props) {
           />
           <div className="turn-pill">
             <span>Перемещение</span>
-            <strong>{activeCharacter.combat.movementRemaining} м</strong>
+            <strong>{formatFeetWithMeters(activeCharacter.combat.movementRemaining)}</strong>
           </div>
         </div>
         <div className="row-actions">

@@ -45,7 +45,7 @@ import { explainSpellSlots, mergeSpellSlotUsage } from './spells/slots'
 import { preparedSpellLimitForCharacter } from './spells/preparation'
 import { calculateSpellAttackBonus, calculateSpellSaveDC } from './spells/spellcasting'
 import { validateCharacter } from './validation/validateCharacter'
-import { feetToMeters } from '../data/distances'
+import { feetToMeters, formatFeetWithMeters } from '../data/distances'
 
 export interface DerivedStats {
   abilityScores: ReturnType<typeof resolveAbilityScores>['scores']
@@ -187,7 +187,7 @@ export function deriveCharacterStats(character: Character): DerivedStats {
     speed,
     speedBreakdown: {
       title: 'Скорость',
-      result: `${speed} м`,
+      result: formatFeetWithMeters(speed),
       lines: [
         race
           ? `${race.name}: ${race.speedFeet} футов = ${formatRaceSpeed(character.raceId)}`
