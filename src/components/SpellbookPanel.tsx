@@ -1,5 +1,13 @@
 import { useState } from 'react'
 import { DEATH_DOMAIN_FEATURES, DEATH_DOMAIN_SPELLS } from '../data/deathDomain'
+import { getReaperCantripId } from '../rules/classes/deathDomain'
+import {
+  applyHarnessDivinePower,
+  CHANNEL_RESOURCE_ID,
+  HARNESS_RESOURCE_ID,
+  harnessMaxSlotLevelForCharacter,
+  harnessRestorableSlotLevels,
+} from '../rules/classes/harnessDivinePower'
 import { getSpell, getSpellsByIds } from '../data/spells'
 import { formatRangeFeet } from '../data/distances'
 import { useCharacterStore } from '../state/CharacterStore'
@@ -11,12 +19,19 @@ import type { CalculationBreakdown } from '../types/explain'
 export function SpellbookPanel() {
   const { activeCharacter, derived, updateActiveCharacter } = useCharacterStore()
   const [limitBreakdown, setLimitBreakdown] = useState<CalculationBreakdown | null>(null)
+  const [harnessSlotLevel, setHarnessSlotLevel] = useState('')
 
   const domainIds = derived.domainSpellIds
   const domainSpells = getSpellsByIds(domainIds)
   const prepared = getSpellsByIds(activeCharacter.preparedSpellIds)
   const known = getSpellsByIds(activeCharacter.knownSpellIds)
-  const cantrips = getSpellsByIds(activeCharacter.cantripIds)
+  const reaperCantripId = getReaperCantripId(activeCharacter)
+  const cantrips = getSpellsByIds(
+    reaperCantripId && !activeCharacter.cantripIds.includes(reaperCantripId)
+      ? [...activeCharacter.cantripIds, reaperCantripId]
+      : activeCharacter.cantripIds,
+  )
+  const cantripTags: Record<string, string> = reaperCantripId ? { [reaperCantripId]: 'Жнец' } : {}
 
   const restoreSlots = () => {
     if (!confirm('Восстановить все ячейки до максимума?')) return
@@ -78,6 +93,50 @@ export function SpellbookPanel() {
     }))
   }
 
+  const channelResource = derived.resources.find((r) => r.id === CHANNEL_RESOURCE_ID)
+  const harnessResource = derived.resources.find((r) => r.id === HARNESS_RESOURCE_ID)
+  const channelOptions = [...derived.features.classFeatures, ...derived.features.subclassFeatures].filter(
+    (f) => f.resourceId === CHANNEL_RESOURCE_ID || f.resourceId === HARNESS_RESOURCE_ID,
+  )
+  const restorableLevels = harnessRestorableSlotLevels(activeCharacter)
+  const harnessMaxLevel = harnessMaxSlotLevelForCharacter(activeCharacter)
+  const selectedHarnessLevel = restorableLevels.includes(Number(harnessSlotLevel))
+    ? Number(harnessSlotLevel)
+    : (restorableLevels[0] ?? 0)
+
+  const useChannelDivinity = (featureName: string) => {
+    if (!channelResource || channelResource.current <= 0) {
+      alert('Нет доступных использований Божественного канала.')
+      return
+    }
+    if (!confirm(`${featureName}: потратить одно использование Божественного канала?`)) return
+    updateActiveCharacter((c) => ({
+      ...c,
+      resources: c.resources.map((r) =>
+        r.id === CHANNEL_RESOURCE_ID && r.current > 0 ? { ...r, current: r.current - 1 } : r,
+      ),
+    }))
+  }
+
+  const useHarnessDivinePower = () => {
+    const result = applyHarnessDivinePower(activeCharacter, selectedHarnessLevel)
+    if (!result.ok) {
+      alert(result.reason)
+      return
+    }
+    if (
+      !confirm(
+        `Праведное восстановление: потратить одно использование Божественного канала и вернуть ячейку ${selectedHarnessLevel} круга?`,
+      )
+    ) {
+      return
+    }
+    updateActiveCharacter((c) => {
+      const applied = applyHarnessDivinePower(c, selectedHarnessLevel)
+      return applied.ok ? applied.character : c
+    })
+  }
+
   const domainFeatures = DEATH_DOMAIN_FEATURES.filter(
     (f) => f.level <= activeCharacter.level,
   )
@@ -134,6 +193,78 @@ export function SpellbookPanel() {
         </section>
       )}
 
+      {channelResource && (
+        <section className="card">
+          <h2 className="section-title">Божественный канал</h2>
+          <p>
+            Доступно {channelResource.current} / {channelResource.max}
+          </p>
+          <p className="muted small">Восстанавливается после короткого или продолжительного отдыха.</p>
+          {channelOptions.map((f) => {
+            const isHarness = f.resourceId === HARNESS_RESOURCE_ID
+            return (
+              <article key={f.id} className="feature-block">
+                <h4>{f.name}</h4>
+                <p>{f.description}</p>
+                <ul className="muted small">
+                  {f.usage && <li>Использование: {f.usage}</li>}
+                  {f.limits && <li>Ограничения: {f.limits}</li>}
+                  {isHarness && harnessResource && (
+                    <li>
+                      Использований умения: {harnessResource.current} / {harnessResource.max}. Максимальный
+                      круг ячейки: {harnessMaxLevel}
+                    </li>
+                  )}
+                </ul>
+                {isHarness ? (
+                  <div className="spell-picker">
+                    <select
+                      className="input"
+                      value={selectedHarnessLevel || ''}
+                      onChange={(e) => setHarnessSlotLevel(e.target.value)}
+                      disabled={restorableLevels.length === 0}
+                      aria-label="Круг возвращаемой ячейки"
+                    >
+                      {restorableLevels.length === 0 ? (
+                        <option value="">Нет потраченных ячеек</option>
+                      ) : (
+                        restorableLevels.map((level) => (
+                          <option key={level} value={level}>
+                            Ячейка {level} круга
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-small"
+                      disabled={
+                        restorableLevels.length === 0 ||
+                        channelResource.current <= 0 ||
+                        !harnessResource ||
+                        harnessResource.current <= 0
+                      }
+                      onClick={useHarnessDivinePower}
+                    >
+                      Восстановить ячейку
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-small"
+                    disabled={channelResource.current <= 0}
+                    onClick={() => useChannelDivinity(f.name)}
+                  >
+                    Использовать
+                  </button>
+                )}
+              </article>
+            )
+          })}
+        </section>
+      )}
+
       <section className="card">
         <h2 className="section-title">Подготовка заклинаний</h2>
         <p>
@@ -148,6 +279,14 @@ export function SpellbookPanel() {
           domainIds={derived.domainSpellIds}
           onPreparedChange={(preparedSpellIds) => updateActiveCharacter({ preparedSpellIds })}
           onCantripsChange={(cantripIds) => updateActiveCharacter({ cantripIds })}
+          reaper={
+            activeCharacter.subclassId === 'death_domain'
+              ? {
+                  cantripId: activeCharacter.reaperCantripId,
+                  onChange: (reaperCantripId) => updateActiveCharacter({ reaperCantripId }),
+                }
+              : undefined
+          }
           onExplainLimit={() => setLimitBreakdown(derived.preparedSpellLimitBreakdown)}
         />
       </section>
@@ -184,7 +323,7 @@ export function SpellbookPanel() {
         ))}
       </section>
 
-      <SpellList title="Заговоры" spells={cantrips} onCast={castSpell} />
+      <SpellList title="Заговоры" spells={cantrips} onCast={castSpell} tags={cantripTags} />
       <SpellList title="Подготовленные" spells={prepared} onCast={castSpell} />
       <SpellList title="Известные" spells={known} onCast={castSpell} />
       <RulesExplanation breakdown={limitBreakdown} onClose={() => setLimitBreakdown(null)} />
@@ -196,10 +335,12 @@ function SpellList({
   title,
   spells,
   onCast,
+  tags,
 }: {
   title: string
   spells: ReturnType<typeof getSpellsByIds>
   onCast: (id: string) => void
+  tags?: Record<string, string>
 }) {
   return (
     <section className="card">
@@ -207,7 +348,7 @@ function SpellList({
       {spells.length === 0 ? (
         <p className="muted">Список пуст. Выберите заклинания в блоке подготовки выше.</p>
       ) : (
-        spells.map((s) => <SpellCard key={s.id} spell={s} onCast={() => onCast(s.id)} />)
+        spells.map((s) => <SpellCard key={s.id} spell={s} onCast={() => onCast(s.id)} tag={tags?.[s.id]} />)
       )}
     </section>
   )
@@ -217,16 +358,19 @@ function SpellCard({
   spell,
   onCast,
   domain,
+  tag,
 }: {
   spell: NonNullable<ReturnType<typeof getSpell>>
   onCast: () => void
   domain?: boolean
+  tag?: string
 }) {
   return (
     <article className={`spell-card ${domain ? 'domain' : ''}`}>
       <header>
         <strong>{spell.name}</strong>
         <span className="chip">{spell.level === 0 ? 'заговор' : `${spell.level} ур.`}</span>
+        {tag && <span className="chip">{tag}</span>}
       </header>
       <p className="muted small">
         {spell.school} · {spell.castingTime} · {spell.rangeText ?? formatRangeFeet(spell.rangeFeet)} ·{' '}

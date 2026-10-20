@@ -1,5 +1,6 @@
 import type { Character, ResourceState } from '../../types/character'
 import { getChannelDivinityUses } from '../classes'
+import { HARNESS_RESOURCE_ID, harnessUses } from '../classes/harnessDivinePower'
 
 export function getRulesResources(character: Character): ResourceState[] {
   const resources: ResourceState[] = []
@@ -13,6 +14,19 @@ export function getRulesResources(character: Character): ResourceState[] {
       max: channelMax,
       recharge: 'short_rest',
       description: 'На 2 уровне - 1 использование, на 6 - 2, на 18 - 3 (2014).',
+    })
+  }
+  const harnessMax = harnessUses(character.level)
+  if (character.classId === 'cleric' && harnessMax > 0) {
+    const existing = character.resources.find((item) => item.id === HARNESS_RESOURCE_ID)
+    resources.push({
+      id: HARNESS_RESOURCE_ID,
+      name: 'Праведное восстановление',
+      current: existing ? Math.min(existing.current, harnessMax) : harnessMax,
+      max: harnessMax,
+      recharge: 'long_rest',
+      description:
+        'Опциональное умение жреца (TCE). Бонусное действие и одно использование Божественного канала: вернуть ячейку не выше половины бонуса мастерства. 1 использование на 2 уровне, 2 на 6, 3 на 18.',
     })
   }
   if (character.raceId === 'dragonborn') {

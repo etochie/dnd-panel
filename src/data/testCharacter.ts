@@ -1,6 +1,7 @@
 import type { Character } from '../types/character'
 import { calculateRulesMaxHp, getSpellSlots } from '../rules'
 import { createId } from '../utils/id'
+import { DEFAULT_REAPER_CANTRIP_ID } from './spells'
 import { emptyJournal, emptyProficiencies } from '../storage/migrateCharacter'
 
 export function createTestCleric(): Character {
@@ -38,6 +39,7 @@ export function createTestCleric(): Character {
     knownSpellIds: [],
     preparedSpellIds: [],
     cantripIds: [],
+    reaperCantripId: DEFAULT_REAPER_CANTRIP_ID,
     spellSlots: getSpellSlots('cleric', level),
     currentHp: 18,
     tempHp: 0,
@@ -109,6 +111,7 @@ export function createBlankCharacter(name: string): Character {
     knownSpellIds: [],
     preparedSpellIds: [],
     cantripIds: [],
+    reaperCantripId: DEFAULT_REAPER_CANTRIP_ID,
     spellSlots: getSpellSlots('cleric', 1),
     currentHp: 1,
     tempHp: 0,

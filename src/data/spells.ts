@@ -28,8 +28,8 @@ function spell(
 }
 
 /**
- * Полный список заклинаний жреца из PHB 2014
- * плюс доменные заклинания Смерти, которых нет в списке жреца.
+ * Список заклинаний жреца по dnd.su (PHB 2014 и дополнения XGE),
+ * плюс доменные заклинания Смерти и заговоры, доступные не из списка жреца (например, Жнец).
  * Описания краткие, без полного текста правил.
  */
 export const SPELLS: SpellDefinition[] = [
@@ -144,6 +144,57 @@ export const SPELLS: SpellDefinition[] = [
     effect: 'Создаёт один мелкий сверхъестественный эффект из списка заговора 2014.',
   }),
   spell({
+    id: 'toll_the_dead',
+    name: 'Погребальный звон',
+    level: 0,
+    school: 'некромантия',
+    castingTime: '1 действие',
+    rangeFeet: 60,
+    components: 'В, С',
+    duration: 'мгновенно',
+    concentration: false,
+    target: 'одно существо, которое вы видите',
+    save: 'МДР',
+    attack: false,
+    effect:
+      'Цель делает спасбросок Мудрости, иначе получает 1d8 некротического урона. Если у цели не все хиты, урон равен 1d12.',
+    higherLevels: 'Урон растёт на одну кость на 5-м (2d8 или 2d12), 11-м (3d8 или 3d12) и 17-м (4d8 или 4d12) уровне.',
+  }),
+  spell({
+    id: 'word_of_radiance',
+    name: 'Слово сияния',
+    level: 0,
+    school: 'воплощение',
+    castingTime: '1 действие',
+    rangeFeet: 5,
+    components: 'В, М (священный символ)',
+    duration: 'мгновенно',
+    concentration: false,
+    target: 'каждое существо по вашему выбору, которое вы видите в пределах дистанции',
+    save: 'ТЕЛ',
+    attack: false,
+    effect: 'Каждая выбранная цель делает спасбросок Телосложения, иначе получает 1d6 урона излучением.',
+    higherLevels: 'Урон растёт на 1d6 на 5-м (2d6), 11-м (3d6) и 17-м (4d6) уровне.',
+  }),
+  spell({
+    id: 'chill_touch',
+    name: 'Леденящее прикосновение',
+    level: 0,
+    school: 'некромантия',
+    castingTime: '1 действие',
+    rangeFeet: 120,
+    components: 'В, С',
+    duration: '1 раунд',
+    concentration: false,
+    target: 'одно существо в пределах дистанции',
+    save: null,
+    attack: true,
+    effect:
+      'Дальнобойная атака заклинанием. При попадании цель получает 1d8 некротического урона и не может восстанавливать хиты до начала вашего следующего хода. Если попали по нежити, она до конца вашего следующего хода совершает по вам броски атаки с помехой.',
+    higherLevels: 'Урон растёт на 1d8 на 5-м (2d8), 11-м (3d8) и 17-м (4d8) уровне.',
+    classIds: [],
+  }),
+  spell({
     id: 'bane',
     name: 'Порча',
     level: 1,
@@ -174,6 +225,23 @@ export const SPELLS: SpellDefinition[] = [
     attack: false,
     effect: 'Цели добавляют 1d4 к броскам атаки и спасброскам.',
     higherLevels: 'Каждый круг ячейки выше 1-го даёт ещё одну цель.',
+  }),
+  spell({
+    id: 'ceremony',
+    name: 'Церемония',
+    level: 1,
+    school: 'ограждение',
+    castingTime: '1 час (ритуал)',
+    rangeFeet: 0,
+    rangeText: 'касание',
+    components: 'В, С, М (порошок серебра стоимостью 25 зм, расходуемый заклинанием)',
+    duration: 'мгновенно',
+    concentration: false,
+    target: 'цель обряда в пределах 3 м от вас',
+    save: null,
+    attack: false,
+    effect:
+      'Вы совершаете религиозную церемонию и выбираете один обряд: благословение воды, венчание, заупокойный обряд, искупление, посвящение или становление. Эффект зависит от выбранного обряда.',
   }),
   spell({
     id: 'command',
@@ -451,7 +519,7 @@ export const SPELLS: SpellDefinition[] = [
   }),
   spell({
     id: 'blindness_deafness',
-    name: 'Слепота/глухота',
+    name: 'Глухота/слепота',
     level: 2,
     school: 'некромантия',
     castingTime: '1 действие',
@@ -482,7 +550,7 @@ export const SPELLS: SpellDefinition[] = [
   }),
   spell({
     id: 'continual_flame',
-    name: 'Неугасимое пламя',
+    name: 'Вечный огонь',
     level: 2,
     school: 'воплощение',
     castingTime: '1 действие',
@@ -530,7 +598,7 @@ export const SPELLS: SpellDefinition[] = [
   }),
   spell({
     id: 'gentle_repose',
-    name: 'Покой',
+    name: 'Нетленные останки',
     level: 2,
     school: 'некромантия',
     castingTime: '1 действие (ритуал)',
@@ -641,7 +709,7 @@ export const SPELLS: SpellDefinition[] = [
   }),
   spell({
     id: 'spiritual_weapon',
-    name: 'Духовное оружие',
+    name: 'Божественное оружие',
     level: 2,
     school: 'воплощение',
     castingTime: '1 бонусное действие',
@@ -657,7 +725,7 @@ export const SPELLS: SpellDefinition[] = [
   }),
   spell({
     id: 'warding_bond',
-    name: 'Охранные узы',
+    name: 'Охраняющая связь',
     level: 2,
     school: 'ограждение',
     castingTime: '1 действие',
@@ -673,7 +741,7 @@ export const SPELLS: SpellDefinition[] = [
   }),
   spell({
     id: 'zone_of_truth',
-    name: 'Зона истины',
+    name: 'Область истины',
     level: 2,
     school: 'очарование',
     castingTime: '1 действие',
@@ -1844,6 +1912,14 @@ export function getClassSpells(classId: string): SpellDefinition[] {
 
 export function getClassCantrips(classId: string): SpellDefinition[] {
   return getClassSpells(classId).filter((s) => s.level === 0)
+}
+
+/** Заговор Жнеца по умолчанию */
+export const DEFAULT_REAPER_CANTRIP_ID = 'chill_touch'
+
+/** Заговоры некромантии из любых списков, из которых можно выбрать заговор Жнеца */
+export function getReaperCantripOptions(): SpellDefinition[] {
+  return SPELLS.filter((s) => s.level === 0 && s.school === 'некромантия')
 }
 
 export function getPreparableClassSpells(classId: string, maxSlotLevel: number): SpellDefinition[] {

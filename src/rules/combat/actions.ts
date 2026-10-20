@@ -1,6 +1,8 @@
 import { STANDARD_ACTIONS_2014, type CombatActionDef } from '../../data/combatActions'
 import type { Character } from '../../types/character'
 import { getClassFeatures, getSubclassFeatures } from '../classes'
+import { getReaperCantripId } from '../classes/deathDomain'
+import { harnessMaxSlotLevelForCharacter, harnessUses } from '../classes/harnessDivinePower'
 import { getRacialFeatures } from '../races'
 import { getDragonbornBreath } from '../races'
 import { getProficiencyBonus } from '../core/proficiency'
@@ -27,11 +29,13 @@ export function getAvailableActions(character: Character): CombatActionDef[] {
   if (character.level >= 2 && character.classId === 'cleric') {
     actions.push({
       id: 'turn_undead',
-      name: 'Изгнание нежити',
+      name: 'Божественный канал: Изгнание нежити',
       actionType: 'action',
-      summary: 'Божественный канал: изгнать нежить в пределах 9 м.',
+      summary:
+        'Нежить, которая видит или слышит вас в пределах 9 м, делает спасбросок Мудрости. При провале изгоняется на 1 минуту или до получения урона.',
       spends: 'Действие и одно использование Божественного канала.',
-      after: 'Действие и ресурс использованы.',
+      after:
+        'Изгнанное существо уходит от вас как можно дальше, не входит добровольно в пределы 9 м от вас и не совершает реакции. Действием оно может только совершить Рывок или освободиться от эффекта, мешающего двигаться. Если двигаться некуда, оно может Уклониться.',
     })
   }
   return actions
@@ -39,15 +43,31 @@ export function getAvailableActions(character: Character): CombatActionDef[] {
 
 export function getAvailableBonusActions(character: Character): CombatActionDef[] {
   const items: CombatActionDef[] = []
-  const prepared = [...character.preparedSpellIds, ...character.cantripIds]
+  const reaperCantripId = getReaperCantripId(character)
+  const prepared = [
+    ...character.preparedSpellIds,
+    ...character.cantripIds,
+    ...(reaperCantripId ? [reaperCantripId] : []),
+  ]
   if (prepared.includes('spiritual_weapon')) {
     items.push({
       id: 'spiritual_weapon',
-      name: 'Духовное оружие',
+      name: 'Божественное оружие',
       actionType: 'bonus',
       summary: 'Создать или переместить духовное оружие и атаковать им.',
       spends: 'Бонусное действие. При первом наложении нужна ячейка 2 круга.',
       after: 'Бонусное действие использовано.',
+    })
+  }
+  if (character.classId === 'cleric' && harnessUses(character.level) > 0) {
+    const maxLevel = harnessMaxSlotLevelForCharacter(character)
+    items.push({
+      id: 'harness_divine_power',
+      name: 'Праведное восстановление',
+      actionType: 'bonus',
+      summary: `Вернуть одну потраченную ячейку заклинаний не выше ${maxLevel} круга.`,
+      spends: 'Бонусное действие, одно использование Божественного канала и одно использование умения.',
+      after: 'Бонусное действие использовано. Использования умения восстанавливаются после продолжительного отдыха.',
     })
   }
   if (items.length === 0 && character.classId === 'cleric') {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   getClassCantrips,
   getPreparableClassSpells,
+  getReaperCantripOptions,
   getSpell,
   getSpellsByIds,
   groupSpellsByLevel,
@@ -20,6 +21,11 @@ interface Props {
   onPreparedChange: (ids: string[]) => void
   onCantripsChange: (ids: string[]) => void
   onExplainLimit?: () => void
+  /** Передаётся только для Домена Смерти: бонусный заговор Жнеца */
+  reaper?: {
+    cantripId: string | null
+    onChange: (id: string | null) => void
+  }
 }
 
 function levelLabel(level: number): string {
@@ -36,6 +42,7 @@ export function SpellPreparationPicker({
   onPreparedChange,
   onCantripsChange,
   onExplainLimit,
+  reaper,
 }: Props) {
   const [cantripChoice, setCantripChoice] = useState('')
   const [preparedChoice, setPreparedChoice] = useState('')
@@ -127,6 +134,27 @@ export function SpellPreparationPicker({
           </button>
         </div>
       </label>
+
+      {reaper && (
+        <label className="field">
+          Заговор Жнеца (Домен Смерти)
+          <select
+            className="input"
+            value={reaper.cantripId ?? ''}
+            onChange={(e) => reaper.onChange(e.target.value || null)}
+          >
+            <option value="">Не выбран</option>
+            {getReaperCantripOptions().map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <span className="muted small">
+            Один заговор некромантии из любого списка. В лимит заговоров жреца не входит.
+          </span>
+        </label>
+      )}
 
       <label className="field">
         Подготовить заклинание

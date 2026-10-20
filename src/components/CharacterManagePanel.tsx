@@ -461,6 +461,14 @@ export function CharacterManagePanel({
           domainIds={derived.domainSpellIds}
           onPreparedChange={(preparedSpellIds) => updateEditorDraft({ preparedSpellIds })}
           onCantripsChange={(cantripIds) => updateEditorDraft({ cantripIds })}
+          reaper={
+            editorCharacter.subclassId === 'death_domain'
+              ? {
+                  cantripId: editorCharacter.reaperCantripId,
+                  onChange: (reaperCantripId) => updateEditorDraft({ reaperCantripId }),
+                }
+              : undefined
+          }
         />
       </section>
 

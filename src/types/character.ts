@@ -173,6 +173,8 @@ export interface Character {
   knownSpellIds: string[]
   preparedSpellIds: string[]
   cantripIds: string[]
+  /** Бонусный заговор некромантии от способности "Жнец" Домена Смерти, вне лимита заговоров жреца */
+  reaperCantripId: string | null
   spellSlots: SpellSlotState[]
   currentHp: number
   tempHp: number

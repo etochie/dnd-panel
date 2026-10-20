@@ -8,6 +8,7 @@ import type {
 } from '../types/character'
 import { ABILITY_KEYS, EMPTY_ABILITIES } from '../rules/core/types'
 import { getClassSaveProficiencies, getGrantedProficiencies } from '../rules/classes'
+import { DEFAULT_REAPER_CANTRIP_ID } from '../data/spells'
 import { normalizeInventory } from '../rules/combat/equipment'
 import { ancestryIdFromLegacy, getRacialAbilityBonuses, raceIdFromLegacyName } from '../rules/races'
 
@@ -198,6 +199,12 @@ export function migrateCharacter(raw: unknown): Character {
     knownSpellIds: stringArray(data.knownSpellIds),
     preparedSpellIds: stringArray(data.preparedSpellIds),
     cantripIds: stringArray(data.cantripIds),
+    reaperCantripId:
+      typeof data.reaperCantripId === 'string' || data.reaperCantripId === null
+        ? data.reaperCantripId
+        : data.subclassId === 'death_domain'
+          ? DEFAULT_REAPER_CANTRIP_ID
+          : null,
     spellSlots: Array.isArray(data.spellSlots) ? data.spellSlots : [],
     currentHp: numberOr(data.currentHp, 1),
     tempHp: numberOr(data.tempHp, 0),

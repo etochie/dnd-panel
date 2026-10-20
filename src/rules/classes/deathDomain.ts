@@ -1,4 +1,12 @@
+import type { Character } from '../../types/character'
 import type { DomainSpellEntry, SubclassDefinition } from './types'
+
+/** Бонусный заговор Жнеца, если персонаж принадлежит Домену Смерти */
+export function getReaperCantripId(
+  character: Pick<Character, 'subclassId' | 'reaperCantripId'>,
+): string | null {
+  return character.subclassId === 'death_domain' ? character.reaperCantripId : null
+}
 
 export const DEATH_DOMAIN_SPELLS: DomainSpellEntry[] = [
   { characterLevel: 1, spellIds: ['false_life', 'ray_of_sickness'] },
@@ -20,10 +28,10 @@ export const DEATH_DOMAIN: SubclassDefinition = {
       name: 'Жнец',
       level: 1,
       description:
-        'Владение военным оружием. При накладывании некоторых заклинаний урона можно нанести урон цели в 1,5 м от цели заклинания (механика домена 2014).',
-      usage: 'При накладывании подходящего заклинания.',
+        'Вы знаете один заговор некромантии на ваш выбор из любого списка заклинаний. Он не входит в число ваших известных заговоров жреца. Когда вы накладываете заговор некромантии, обычно нацеленный на одно существо, он может нацелиться на два существа в пределах дистанции, находящихся не дальше 1,5 м друг от друга.',
+      usage: 'При накладывании заговора некромантии, нацеленного на одно существо.',
       actionType: 'часть накладывания заклинания',
-      limits: 'См. полное описание домена в правилах 2014.',
+      limits: 'Две цели должны находиться в пределах 1,5 м друг от друга.',
     },
     {
       id: 'death_channel',
