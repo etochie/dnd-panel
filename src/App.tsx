@@ -38,8 +38,8 @@ function AppInner() {
         {tab === 'combat' && (
           <CombatPanel onExplain={setBreakdown} onMechanic={onMechanic} />
         )}
-        {tab === 'spells' && <SpellbookPanel onMechanic={onMechanic} onExplain={setBreakdown} />}
-        {tab === 'inventory' && <InventoryPanel onExplain={setBreakdown} />}
+        {tab === 'spells' && <SpellbookPanel onMechanic={onMechanic} />}
+        {tab === 'inventory' && <InventoryPanel />}
         {tab === 'journal' && <JournalPanel />}
         {tab === 'character' && <CharacterManagePanel onExplain={setBreakdown} />}
       </AppShell>

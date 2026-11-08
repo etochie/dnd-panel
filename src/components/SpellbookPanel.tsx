@@ -16,16 +16,14 @@ import { useTableMode } from '../state/TableMode'
 import { MechanicHint, RulesExplanation } from './RulesExplanation'
 import { MECHANIC_HINTS } from '../data/combatActions'
 import { SpellPreparationPicker } from './SpellPreparationPicker'
-import { TableStrip } from './table/TableStrip'
 import type { CalculationBreakdown } from '../types/explain'
 import type { Character } from '../types/character'
 
 interface Props {
   onMechanic: (title: string, text: string) => void
-  onExplain: (breakdown: CalculationBreakdown) => void
 }
 
-export function SpellbookPanel({ onMechanic, onExplain }: Props) {
+export function SpellbookPanel({ onMechanic }: Props) {
   const { activeCharacter, derived, updateActiveCharacter } = useCharacterStore()
   const { mode, openConfirm, openNotice, openChoice } = useTableMode()
   const newTable = mode === 'new'
@@ -463,7 +461,6 @@ export function SpellbookPanel({ onMechanic, onExplain }: Props) {
 
   return (
     <div className="stack gap-lg">
-      {newTable && <TableStrip onExplain={onExplain} />}
       {slotsSection}
       {concentrationSection}
       {newTable && (

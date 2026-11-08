@@ -4,7 +4,6 @@ import { ACTION_TYPE_LABELS } from '../data/labels'
 import { useCharacterStore } from '../state/CharacterStore'
 import { useTableMode } from '../state/TableMode'
 import { MechanicHint } from './RulesExplanation'
-import { TableStrip } from './table/TableStrip'
 import type { CalculationBreakdown } from '../types/explain'
 
 interface Props {
@@ -86,7 +85,6 @@ export function CombatPanel({ onExplain, onMechanic }: Props) {
     const movement = activeCharacter.combat.movementRemaining
     return (
       <div className="stack gap-lg">
-        <TableStrip onExplain={onExplain} />
         <section className="card">
           <h2 className="section-title">Бой</h2>
           <div className="move-step">

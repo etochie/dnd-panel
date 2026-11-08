@@ -14,10 +14,8 @@ import {
 import { useCharacterStore } from '../state/CharacterStore'
 import { useTableMode } from '../state/TableMode'
 import type { InventoryItem, ItemCategory } from '../types/character'
-import type { CalculationBreakdown } from '../types/explain'
 import { createId } from '../utils/id'
 import { NumberStepper } from './NumberStepper'
-import { TableStrip } from './table/TableStrip'
 
 const CATEGORY_OPTIONS: ItemCategory[] = [
   'weapon',
@@ -53,11 +51,7 @@ function createBlankItem(): InventoryItem {
   }
 }
 
-export function InventoryPanel({
-  onExplain,
-}: {
-  onExplain?: (breakdown: CalculationBreakdown) => void
-}) {
+export function InventoryPanel() {
   const { activeCharacter, derived, updateActiveCharacter } = useCharacterStore()
   const { mode, openConfirm } = useTableMode()
   const newTable = mode === 'new'
@@ -324,7 +318,6 @@ export function InventoryPanel({
   if (newTable) {
     return (
       <div className="stack gap-lg">
-        <TableStrip onExplain={onExplain} />
         {restSection}
         {resourcesSection}
         {breathSection}
