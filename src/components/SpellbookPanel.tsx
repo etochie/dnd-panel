@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { DEATH_DOMAIN_FEATURES, DEATH_DOMAIN_SPELLS } from '../data/deathDomain'
+import { getDestroyUndeadCr } from '../rules/classes'
 import { getReaperCantripId } from '../rules/classes/deathDomain'
 import {
   applyHarnessDivinePower,
@@ -98,6 +99,8 @@ export function SpellbookPanel() {
   const channelOptions = [...derived.features.classFeatures, ...derived.features.subclassFeatures].filter(
     (f) => f.resourceId === CHANNEL_RESOURCE_ID || f.resourceId === HARNESS_RESOURCE_ID,
   )
+  const destroyUndead = derived.features.classFeatures.find((f) => f.id === 'cleric_destroy_undead')
+  const destroyCr = getDestroyUndeadCr(activeCharacter.classId, activeCharacter.level)
   const restorableLevels = harnessRestorableSlotLevels(activeCharacter)
   const harnessMaxLevel = harnessMaxSlotLevelForCharacter(activeCharacter)
   const selectedHarnessLevel = restorableLevels.includes(Number(harnessSlotLevel))
@@ -205,7 +208,12 @@ export function SpellbookPanel() {
             return (
               <article key={f.id} className="feature-block">
                 <h4>{f.name}</h4>
-                <p>{f.description}</p>
+                <p>
+                  {f.description}
+                  {f.id === 'cleric_turn_undead' && destroyCr
+                    ? ` Если показатель опасности нежити не выше ${destroyCr}, провал спасброска уничтожает её мгновенно.`
+                    : ''}
+                </p>
                 <ul className="muted small">
                   {f.usage && <li>Использование: {f.usage}</li>}
                   {f.limits && <li>Ограничения: {f.limits}</li>}
@@ -262,6 +270,26 @@ export function SpellbookPanel() {
               </article>
             )
           })}
+        </section>
+      )}
+
+      {destroyUndead && (
+        <section className="card">
+          <h2 className="section-title">Уничтожение нежити</h2>
+          <article className="feature-block">
+            <h4>
+              {destroyUndead.name} <span className="muted">(ур. {destroyUndead.level})</span>
+            </h4>
+            <p>{destroyUndead.description}</p>
+            <ul className="muted small">
+              {destroyCr && (
+                <li>Сейчас уничтожается нежить с показателем опасности {destroyCr} или ниже.</li>
+              )}
+              {destroyUndead.usage && <li>Использование: {destroyUndead.usage}</li>}
+              {destroyUndead.limits && <li>Ограничения: {destroyUndead.limits}</li>}
+              <li>Тип: {destroyUndead.actionType}</li>
+            </ul>
+          </article>
         </section>
       )}
 

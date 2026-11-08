@@ -71,6 +71,10 @@ export function getChannelDivinityUses(classId: string, level: number): number {
   return getClassProgressionRow(classId, level)?.channelDivinity ?? 0
 }
 
+export function getDestroyUndeadCr(classId: string, level: number): string | null {
+  return getClassProgressionRow(classId, level)?.destroyUndeadCr ?? null
+}
+
 export function getCantripsKnown(classId: string, level: number): number {
   return getClassProgressionRow(classId, level)?.cantripsKnown ?? 0
 }

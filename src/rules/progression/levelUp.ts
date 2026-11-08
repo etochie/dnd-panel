@@ -1,7 +1,13 @@
 import type { AsiChoice } from '../core/types'
 import type { Character } from '../../types/character'
 import { getProficiencyBonus } from '../core/proficiency'
-import { getCantripsKnown, getChannelDivinityUses, getClassDefinition, classGainsAsiAtLevel } from '../classes'
+import {
+  classGainsAsiAtLevel,
+  getCantripsKnown,
+  getChannelDivinityUses,
+  getClassDefinition,
+  getDestroyUndeadCr,
+} from '../classes'
 import { getSpellSlots } from '../spells/slots'
 import { calculateRulesMaxHp, getHitDice } from './hitPoints'
 
@@ -80,7 +86,25 @@ export function previewLevelUp(character: Character): LevelUpPreview | null {
     })
   }
   for (const name of newFeatures) {
-    changes.push({ label: 'Новая способность', detail: name })
+    if (name === 'Уничтожение нежити') {
+      const cr = getDestroyUndeadCr(character.classId, toLevel)
+      changes.push({
+        label: 'Новая способность',
+        detail: cr
+          ? `Уничтожение нежити: нежить с показателем опасности ${cr} или ниже уничтожается, если проваливает спасбросок от Изгнания нежити`
+          : name,
+      })
+    } else {
+      changes.push({ label: 'Новая способность', detail: name })
+    }
+  }
+  const destroyBefore = getDestroyUndeadCr(character.classId, fromLevel)
+  const destroyAfter = getDestroyUndeadCr(character.classId, toLevel)
+  if (destroyBefore && destroyAfter && destroyBefore !== destroyAfter) {
+    changes.push({
+      label: 'Уничтожение нежити',
+      detail: `порог вырос до показателя опасности ${destroyAfter}: нежить не сильнее этого порога уничтожается при провале спасброска от Изгнания нежити`,
+    })
   }
 
   return { fromLevel, toLevel, needsAsi, needsHpRoll, hitDie: classDef?.hitDie ?? 8, changes }

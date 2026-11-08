@@ -14,6 +14,7 @@ export {
   getChannelDivinityUses,
   getClassDefinition,
   getClassFeatures,
+  getDestroyUndeadCr,
   getClassHitDie,
   getClassSpellSlots,
   getDomainSpellIds,

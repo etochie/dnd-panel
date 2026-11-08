@@ -1,6 +1,6 @@
 import { STANDARD_ACTIONS_2014, type CombatActionDef } from '../../data/combatActions'
 import type { Character } from '../../types/character'
-import { getClassFeatures, getSubclassFeatures } from '../classes'
+import { getClassFeatures, getDestroyUndeadCr, getSubclassFeatures } from '../classes'
 import { getReaperCantripId } from '../classes/deathDomain'
 import { harnessMaxSlotLevelForCharacter, harnessUses } from '../classes/harnessDivinePower'
 import { getRacialFeatures } from '../races'
@@ -27,15 +27,20 @@ export function getAvailableActions(character: Character): CombatActionDef[] {
     })
   }
   if (character.level >= 2 && character.classId === 'cleric') {
+    const destroyCr = getDestroyUndeadCr(character.classId, character.level)
+    const turned =
+      'Изгнанное существо уходит от вас как можно дальше, не входит добровольно в пределы 9 м от вас и не совершает реакции. Действием оно может только совершить Рывок или освободиться от эффекта, мешающего двигаться. Если двигаться некуда, оно может Уклониться.'
     actions.push({
       id: 'turn_undead',
       name: 'Божественный канал: Изгнание нежити',
       actionType: 'action',
-      summary:
-        'Нежить, которая видит или слышит вас в пределах 9 м, делает спасбросок Мудрости. При провале изгоняется на 1 минуту или до получения урона.',
+      summary: destroyCr
+        ? `Нежить, которая видит или слышит вас в пределах 9 м, делает спасбросок Мудрости. При провале изгоняется на 1 минуту или до получения урона. Если её показатель опасности не выше ${destroyCr}, она уничтожается мгновенно.`
+        : 'Нежить, которая видит или слышит вас в пределах 9 м, делает спасбросок Мудрости. При провале изгоняется на 1 минуту или до получения урона.',
       spends: 'Действие и одно использование Божественного канала.',
-      after:
-        'Изгнанное существо уходит от вас как можно дальше, не входит добровольно в пределы 9 м от вас и не совершает реакции. Действием оно может только совершить Рывок или освободиться от эффекта, мешающего двигаться. Если двигаться некуда, оно может Уклониться.',
+      after: destroyCr
+        ? `${turned} Нежить с показателем опасности ${destroyCr} или ниже уничтожена, а не изгнана.`
+        : turned,
     })
   }
   return actions
