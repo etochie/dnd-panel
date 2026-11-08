@@ -6,9 +6,10 @@ import { AsiPicker } from './AsiPicker'
 interface Props {
   character: Character
   onChange: (asiChoices: AsiChoice[]) => void
+  confirmReset?: (level: number, proceed: () => void) => void
 }
 
-export function AsiChoicesEditor({ character, onChange }: Props) {
+export function AsiChoicesEditor({ character, onChange, confirmReset }: Props) {
   const [editingLevel, setEditingLevel] = useState<number | null>(null)
   const choices = [...(character.asiChoices ?? [])].sort((a, b) => a.level - b.level)
 
@@ -20,9 +21,16 @@ export function AsiChoicesEditor({ character, onChange }: Props) {
   }
 
   const reset = (level: number) => {
+    const proceed = () => {
+      onChange(choices.filter((item) => item.level !== level))
+      setEditingLevel(null)
+    }
+    if (confirmReset) {
+      confirmReset(level, proceed)
+      return
+    }
     if (!confirm(`Сбросить улучшение характеристик ${level} уровня?`)) return
-    onChange(choices.filter((item) => item.level !== level))
-    setEditingLevel(null)
+    proceed()
   }
 
   return (

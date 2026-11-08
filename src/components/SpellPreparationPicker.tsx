@@ -21,6 +21,7 @@ interface Props {
   onPreparedChange: (ids: string[]) => void
   onCantripsChange: (ids: string[]) => void
   onExplainLimit?: () => void
+  onBlocked?: (message: string) => void
   /** Передаётся только для Домена Смерти: бонусный заговор Жнеца */
   reaper?: {
     cantripId: string | null
@@ -42,6 +43,7 @@ export function SpellPreparationPicker({
   onPreparedChange,
   onCantripsChange,
   onExplainLimit,
+  onBlocked,
   reaper,
 }: Props) {
   const [cantripChoice, setCantripChoice] = useState('')
@@ -62,9 +64,9 @@ export function SpellPreparationPicker({
     if (!cantripChoice) return
     if (cantripIds.includes(cantripChoice)) return
     if (cantripLimit > 0 && cantripIds.length >= cantripLimit) {
-      alert(
-        `По таблице жреца 2014 на ${level} уровне известно ${cantripLimit} заговоров. Снимите один, чтобы взять другой.`,
-      )
+      const message = `По таблице жреца 2014 на ${level} уровне известно ${cantripLimit} заговоров. Снимите один, чтобы взять другой.`
+      if (onBlocked) onBlocked(message)
+      else alert(message)
       return
     }
     onCantripsChange([...cantripIds, cantripChoice])
@@ -75,9 +77,9 @@ export function SpellPreparationPicker({
     if (!preparedChoice) return
     if (preparedIds.includes(preparedChoice) || domainIds.includes(preparedChoice)) return
     if (preparedLimit > 0 && preparedIds.length >= preparedLimit) {
-      alert(
-        `По правилам 2014 жрец готовит не больше ${preparedLimit} заклинаний: модификатор мудрости + уровень, минимум 1. Доменные заклинания в этот лимит не входят.`,
-      )
+      const message = `По правилам 2014 жрец готовит не больше ${preparedLimit} заклинаний: модификатор мудрости + уровень, минимум 1. Доменные заклинания в этот лимит не входят.`
+      if (onBlocked) onBlocked(message)
+      else alert(message)
       return
     }
     onPreparedChange([...preparedIds, preparedChoice])

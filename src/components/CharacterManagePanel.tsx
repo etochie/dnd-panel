@@ -23,8 +23,20 @@ import { LevelUpWizard } from './character/LevelUpWizard'
 import { AsiPicker } from './character/AsiPicker'
 import { AsiChoicesEditor } from './character/AsiChoicesEditor'
 import { SkillProficiencyPicker } from './character/SkillProficiencyPicker'
+import { EditorFolds } from './character/EditorFolds'
+import { useTableMode } from '../state/TableMode'
 
 export function CharacterManagePanel({
+  onExplain,
+}: {
+  onExplain: (b: CalculationBreakdown) => void
+}) {
+  const { mode } = useTableMode()
+  if (mode === 'new') return <EditorFolds onExplain={onExplain} />
+  return <CharacterManageClassic onExplain={onExplain} />
+}
+
+function CharacterManageClassic({
   onExplain,
 }: {
   onExplain: (b: CalculationBreakdown) => void

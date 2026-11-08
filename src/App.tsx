@@ -7,9 +7,12 @@ import { JournalPanel } from './components/JournalPanel'
 import { CharacterManagePanel } from './components/CharacterManagePanel'
 import { RulesExplanation } from './components/RulesExplanation'
 import { AppShell, type AppTab } from './components/layout/AppShell'
+import { TableDialogHost } from './components/table/TableDialog'
 import { CharacterProvider, useCharacterStore } from './state/CharacterStore'
+import { TableModeProvider } from './state/TableMode'
 import type { CalculationBreakdown } from './types/explain'
 import './App.css'
+import './components/table/table.css'
 
 function AppInner() {
   const { activeCharacter } = useCharacterStore()
@@ -35,8 +38,8 @@ function AppInner() {
         {tab === 'combat' && (
           <CombatPanel onExplain={setBreakdown} onMechanic={onMechanic} />
         )}
-        {tab === 'spells' && <SpellbookPanel />}
-        {tab === 'inventory' && <InventoryPanel />}
+        {tab === 'spells' && <SpellbookPanel onMechanic={onMechanic} onExplain={setBreakdown} />}
+        {tab === 'inventory' && <InventoryPanel onExplain={setBreakdown} />}
         {tab === 'journal' && <JournalPanel />}
         {tab === 'character' && <CharacterManagePanel onExplain={setBreakdown} />}
       </AppShell>
@@ -49,6 +52,7 @@ function AppInner() {
         }
         onClose={() => setMechanic(null)}
       />
+      <TableDialogHost />
     </>
   )
 }
@@ -56,7 +60,9 @@ function AppInner() {
 export default function App() {
   return (
     <CharacterProvider>
-      <AppInner />
+      <TableModeProvider>
+        <AppInner />
+      </TableModeProvider>
     </CharacterProvider>
   )
 }

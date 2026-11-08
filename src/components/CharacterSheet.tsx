@@ -1,9 +1,12 @@
 import { useCharacterStore } from '../state/CharacterStore'
+import { useTableMode } from '../state/TableMode'
 import { StatButton } from './StatButton'
 import type { CalculationBreakdown } from '../types/explain'
 import { CONDITIONS_2014 } from '../data/conditions'
 import { formatFeetWithMeters } from '../data/distances'
 import { ABILITY_LABELS, equipShieldOnCharacter, formatModifier, unequipShieldOnCharacter } from '../rules'
+import { TableStrip } from './table/TableStrip'
+import { characterAfterDamage, characterAfterHeal, characterAfterTempHp } from './table/hpChanges'
 
 interface Props {
   onExplain: (b: CalculationBreakdown) => void
@@ -11,44 +14,34 @@ interface Props {
 
 export function CharacterSheet({ onExplain }: Props) {
   const { activeCharacter, derived, updateActiveCharacter } = useCharacterStore()
+  const { mode } = useTableMode()
   const maxHp = derived.maxHp
+  const newTable = mode === 'new'
+
+  const readAmount = (label: string, fallback: string) => {
+    const raw = prompt(label, fallback)
+    if (raw == null) return null
+    const amount = parseInt(raw, 10)
+    if (Number.isNaN(amount) || amount < 0) return null
+    return amount
+  }
 
   const applyDamage = () => {
-    const raw = prompt('Урон (число):', '1')
-    if (raw == null) return
-    const n = parseInt(raw, 10)
-    if (Number.isNaN(n) || n < 0) return
-    updateActiveCharacter((character) => {
-      let temp = character.tempHp
-      let hp = character.currentHp
-      let remaining = n
-      if (temp > 0) {
-        const used = Math.min(temp, remaining)
-        temp -= used
-        remaining -= used
-      }
-      hp = Math.max(0, hp - remaining)
-      return { ...character, currentHp: hp, tempHp: temp }
-    })
+    const amount = readAmount('Урон (число):', '1')
+    if (amount == null) return
+    updateActiveCharacter((character) => characterAfterDamage(character, amount))
   }
 
   const applyHeal = () => {
-    const raw = prompt('Лечение (число):', '1')
-    if (raw == null) return
-    const n = parseInt(raw, 10)
-    if (Number.isNaN(n) || n < 0) return
-    updateActiveCharacter((character) => ({
-      ...character,
-      currentHp: Math.min(maxHp, character.currentHp + n),
-    }))
+    const amount = readAmount('Лечение (число):', '1')
+    if (amount == null) return
+    updateActiveCharacter((character) => characterAfterHeal(character, amount, maxHp))
   }
 
   const addTempHp = () => {
-    const raw = prompt('Временные хиты:', '1')
-    if (raw == null) return
-    const n = parseInt(raw, 10)
-    if (Number.isNaN(n) || n < 0) return
-    updateActiveCharacter((character) => ({ ...character, tempHp: character.tempHp + n }))
+    const amount = readAmount('Временные хиты:', '1')
+    if (amount == null) return
+    updateActiveCharacter((character) => characterAfterTempHp(character, amount))
   }
 
   const identity = [
@@ -63,6 +56,7 @@ export function CharacterSheet({ onExplain }: Props) {
 
   return (
     <div className="stack gap-lg">
+      {newTable && <TableStrip onExplain={onExplain} />}
       <section className="card hero-card">
         <div className="hero-title">
           <h2>{activeCharacter.name}</h2>
@@ -85,28 +79,32 @@ export function CharacterSheet({ onExplain }: Props) {
           <button type="button" className="link-hint" onClick={() => onExplain(derived.maxHpBreakdown)}>
             Как считается?
           </button>
-          <div className="hp-actions">
-            <button type="button" className="btn" onClick={applyDamage}>
-              Получить урон
-            </button>
-            <button type="button" className="btn" onClick={applyHeal}>
-              Получить лечение
-            </button>
-            <button type="button" className="btn" onClick={addTempHp}>
-              Временные хиты
-            </button>
-          </div>
+          {!newTable && (
+            <div className="hp-actions">
+              <button type="button" className="btn" onClick={applyDamage}>
+                Получить урон
+              </button>
+              <button type="button" className="btn" onClick={applyHeal}>
+                Получить лечение
+              </button>
+              <button type="button" className="btn" onClick={addTempHp}>
+                Временные хиты
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
       <section className="grid-stats">
-        <StatButton
-          label="КД"
-          value={String(derived.ac)}
-          breakdown={derived.acBreakdown}
-          onExplain={onExplain}
-          hint={derived.acSummary}
-        />
+        {!newTable && (
+          <StatButton
+            label="КД"
+            value={String(derived.ac)}
+            breakdown={derived.acBreakdown}
+            onExplain={onExplain}
+            hint={derived.acSummary}
+          />
+        )}
         <StatButton
           label="Инициатива"
           value={formatModifier(derived.initiative)}
@@ -159,16 +157,18 @@ export function CharacterSheet({ onExplain }: Props) {
 
       <section className="card ac-shield-block">
         <h3 className="section-title">Класс брони и щит</h3>
-        <p>
-          <button
-            type="button"
-            className="hp-value hp-value-btn"
-            title={derived.acSummary}
-            onClick={() => onExplain(derived.acBreakdown)}
-          >
-            КД: {derived.ac}
-          </button>
-        </p>
+        {!newTable && (
+          <p>
+            <button
+              type="button"
+              className="hp-value hp-value-btn"
+              title={derived.acSummary}
+              onClick={() => onExplain(derived.acBreakdown)}
+            >
+              КД: {derived.ac}
+            </button>
+          </p>
+        )}
         <p className="muted small">{derived.acSummary}</p>
         <p className="muted small">
           Броня: {derived.armorName ?? 'нет'}

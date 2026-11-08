@@ -12,9 +12,12 @@ import {
   unequipItemOnCharacter,
 } from '../rules/combat/equipment'
 import { useCharacterStore } from '../state/CharacterStore'
+import { useTableMode } from '../state/TableMode'
 import type { InventoryItem, ItemCategory } from '../types/character'
+import type { CalculationBreakdown } from '../types/explain'
 import { createId } from '../utils/id'
 import { NumberStepper } from './NumberStepper'
+import { TableStrip } from './table/TableStrip'
 
 const CATEGORY_OPTIONS: ItemCategory[] = [
   'weapon',
@@ -50,10 +53,17 @@ function createBlankItem(): InventoryItem {
   }
 }
 
-export function InventoryPanel() {
+export function InventoryPanel({
+  onExplain,
+}: {
+  onExplain?: (breakdown: CalculationBreakdown) => void
+}) {
   const { activeCharacter, derived, updateActiveCharacter } = useCharacterStore()
+  const { mode, openConfirm } = useTableMode()
+  const newTable = mode === 'new'
   const [catalogId, setCatalogId] = useState('chain_mail')
   const [equipMessage, setEquipMessage] = useState<string | null>(null)
+  const [openItemId, setOpenItemId] = useState<string | null>(null)
 
   const updateInventory = (map: (items: InventoryItem[]) => InventoryItem[]) => {
     updateActiveCharacter((c) => ({ ...c, inventory: map(c.inventory) }))
@@ -75,8 +85,22 @@ export function InventoryPanel() {
   }
 
   const removeItem = (id: string) => {
-    if (!confirm('Удалить предмет?')) return
-    updateInventory((items) => items.filter((i) => i.id !== id))
+    const apply = () => {
+      updateInventory((items) => items.filter((i) => i.id !== id))
+      setOpenItemId((current) => (current === id ? null : current))
+    }
+    if (!newTable) {
+      if (!confirm('Удалить предмет?')) return
+      apply()
+      return
+    }
+    openConfirm({
+      title: 'Удалить предмет',
+      text: 'Удалить предмет?',
+      confirmLabel: 'Удалить',
+      danger: true,
+      onConfirm: apply,
+    })
   }
 
   const addItem = () => {
@@ -112,8 +136,9 @@ export function InventoryPanel() {
   const breath = derived.breath
   const equipped = activeCharacter.inventory.filter((i) => i.equipped)
 
-  return (
-    <div className="stack gap-lg">
+  const applyLong = () => updateActiveCharacter(applyLongRest(activeCharacter))
+
+  const resourcesSection = (
       <section className="card">
         <h2 className="section-title">Ресурсы</h2>
         {derived.resources.length === 0 ? (
@@ -149,8 +174,9 @@ export function InventoryPanel() {
           ))
         )}
       </section>
+  )
 
-      {breath && (
+  const breathSection = breath && (
         <section className="card">
           <h3 className="section-title">Драконье дыхание</h3>
           <ul>
@@ -162,8 +188,9 @@ export function InventoryPanel() {
             <li>Восстановление: {breath.recharge}</li>
           </ul>
         </section>
-      )}
+      )
 
+  const restSection = (
       <section className="card">
         <h3 className="section-title">Отдых</h3>
         <RestBlock
@@ -175,12 +202,23 @@ export function InventoryPanel() {
           title={longPreview.label}
           lines={longPreview.changes}
           onApply={() => {
-            if (!confirm('Применить продолжительный отдых?')) return
-            updateActiveCharacter(applyLongRest(activeCharacter))
+            if (!newTable) {
+              if (!confirm('Применить продолжительный отдых?')) return
+              applyLong()
+              return
+            }
+            openConfirm({
+              title: 'Продолжительный отдых',
+              text: 'Применить продолжительный отдых?',
+              confirmLabel: 'Применить',
+              onConfirm: applyLong,
+            })
           }}
         />
       </section>
+  )
 
+  const equipmentSection = (
       <section className="card">
         <h3 className="section-title">Экипировка</h3>
         <div className="slot-grid">
@@ -207,6 +245,18 @@ export function InventoryPanel() {
         ))}
         {equipped.length === 0 ? (
           <p className="muted">Ничего не экипировано.</p>
+        ) : newTable ? (
+          equipped.map((item) => (
+            <div key={item.id} className="equipped-short">
+              <div>
+                <strong>{item.name}</strong>
+                <p className="muted small">{describeItemWear(item)}</p>
+              </div>
+              <button type="button" className="btn-small" onClick={() => toggleEquip(item)}>
+                Снять
+              </button>
+            </div>
+          ))
         ) : (
           equipped.map((item) => (
             <InventoryItemRow
@@ -220,7 +270,9 @@ export function InventoryPanel() {
           ))
         )}
       </section>
+  )
 
+  const inventorySection = (
       <section className="card">
         <h3 className="section-title">Инвентарь</h3>
         {activeCharacter.inventory.length === 0 ? (
@@ -233,6 +285,11 @@ export function InventoryPanel() {
               onUpdate={(patch) => updateItem(item.id, patch)}
               onRemove={() => removeItem(item.id)}
               onToggleEquip={() => toggleEquip(item)}
+              collapsible={newTable}
+              expanded={openItemId === item.id}
+              onToggle={() =>
+                setOpenItemId((current) => (current === item.id ? null : item.id))
+              }
             />
           ))
         )}
@@ -255,11 +312,37 @@ export function InventoryPanel() {
           Добавить предмет
         </button>
       </section>
+  )
 
+  const moneySection = (
       <section className="card">
         <h3 className="section-title">Деньги</h3>
         <MoneyEditor />
       </section>
+  )
+
+  if (newTable) {
+    return (
+      <div className="stack gap-lg">
+        <TableStrip onExplain={onExplain} />
+        {restSection}
+        {resourcesSection}
+        {breathSection}
+        {equipmentSection}
+        {inventorySection}
+        {moneySection}
+      </div>
+    )
+  }
+
+  return (
+    <div className="stack gap-lg">
+      {resourcesSection}
+      {breathSection}
+      {restSection}
+      {equipmentSection}
+      {inventorySection}
+      {moneySection}
     </div>
   )
 }
@@ -270,17 +353,42 @@ function InventoryItemRow({
   onRemove,
   onToggleEquip,
   equippedView = false,
+  collapsible = false,
+  expanded = false,
+  onToggle,
 }: {
   item: InventoryItem
   onUpdate: (patch: Partial<InventoryItem>) => void
   onRemove: () => void
   onToggleEquip: () => void
   equippedView?: boolean
+  collapsible?: boolean
+  expanded?: boolean
+  onToggle?: () => void
 }) {
   const wearValue = item.equipmentSlot ?? ''
 
+  if (collapsible && !expanded) {
+    return (
+      <div className="item-row item-row-compact">
+        <button type="button" className="item-open" aria-expanded={false} onClick={onToggle}>
+          <strong>{item.name}</strong>
+          <span className="muted small">
+            {item.quantity} шт. · {ITEM_CATEGORY_LABELS[item.category]} ·{' '}
+            {item.equipped ? 'надето' : 'в сумке'}
+          </span>
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="item-row item-row-edit">
+      {collapsible && (
+        <button type="button" className="btn-small" aria-expanded={true} onClick={onToggle}>
+          Свернуть
+        </button>
+      )}
       <div className="item-row-fields">
         <input
           className="input item-name-input"

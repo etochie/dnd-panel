@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { useTableMode } from '../../state/TableMode'
 import './AppShell.css'
 
 export type AppTab =
@@ -18,6 +19,10 @@ const TABS: { id: AppTab; label: string }[] = [
   { id: 'character', label: 'Персонаж' },
 ]
 
+const PRIMARY_TABS = TABS.filter((tab) =>
+  ['sheet', 'combat', 'spells', 'inventory'].includes(tab.id),
+)
+
 interface Props {
   title: string
   children: ReactNode
@@ -26,12 +31,15 @@ interface Props {
 }
 
 export function AppShell({ title, children, activeTab, onTabChange }: Props) {
+  const { mode, setMode } = useTableMode()
   const [navOpen, setNavOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const newTable = mode === 'new'
 
   useEffect(() => {
     if (!navOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setNavOpen(false)
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setNavOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -41,10 +49,13 @@ export function AppShell({ title, children, activeTab, onTabChange }: Props) {
   const goTo = (tab: AppTab) => {
     onTabChange(tab)
     closeNav()
+    setMoreOpen(false)
   }
 
+  const moreActive = activeTab === 'journal' || activeTab === 'character'
+
   return (
-    <div className={`app-shell ${navOpen ? 'nav-open' : ''}`}>
+    <div className={`app-shell ${navOpen ? 'nav-open' : ''} ${newTable ? 'table-new' : ''}`}>
       {navOpen && (
         <button
           type="button"
@@ -78,7 +89,7 @@ export function AppShell({ title, children, activeTab, onTabChange }: Props) {
           <button
             type="button"
             className="menu-toggle"
-            onClick={() => setNavOpen((v) => !v)}
+            onClick={() => setNavOpen((value) => !value)}
             aria-label={navOpen ? 'Закрыть меню' : 'Открыть меню'}
             aria-expanded={navOpen}
             aria-controls="app-sidebar"
@@ -86,12 +97,30 @@ export function AppShell({ title, children, activeTab, onTabChange }: Props) {
             {navOpen ? '×' : '☰'}
           </button>
           <h1>{title}</h1>
+          <div className="mode-switch" role="group" aria-label="Вид стола">
+            <button type="button" aria-pressed={mode === 'new'} onClick={() => setMode('new')}>
+              Новый стол
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode === 'classic'}
+              onClick={() => setMode('classic')}
+            >
+              Как было
+            </button>
+          </div>
         </header>
         <main className="page-content">{children}</main>
+        {newTable && moreOpen && (
+          <button
+            type="button"
+            className="more-backdrop"
+            aria-label="Закрыть меню Ещё"
+            onClick={() => setMoreOpen(false)}
+          />
+        )}
         <nav className="bottom-nav" aria-label="Основная навигация">
-          {TABS.filter((t) =>
-            ['sheet', 'combat', 'spells', 'inventory'].includes(t.id),
-          ).map((tab) => (
+          {PRIMARY_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -101,6 +130,36 @@ export function AppShell({ title, children, activeTab, onTabChange }: Props) {
               {tab.label}
             </button>
           ))}
+          {newTable && (
+            <div className="more-slot">
+              <button
+                type="button"
+                className={moreActive ? 'active' : ''}
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen((value) => !value)}
+              >
+                Ещё
+              </button>
+              {moreOpen && (
+                <div className="more-menu">
+                  <button
+                    type="button"
+                    className={activeTab === 'journal' ? 'active' : ''}
+                    onClick={() => goTo('journal')}
+                  >
+                    Журнал
+                  </button>
+                  <button
+                    type="button"
+                    className={activeTab === 'character' ? 'active' : ''}
+                    onClick={() => goTo('character')}
+                  >
+                    Персонаж
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </nav>
       </div>
     </div>
